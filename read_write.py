@@ -1,4 +1,6 @@
 import rclpy
+import sys
+import select  
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray
 from geometry_msgs.msg import Twist
@@ -42,27 +44,50 @@ class MotorControl(Node):
         self.base_speed = 50  # 設定基礎速度
     
     def offset_callback(self, msg):
+        # 允許使用 'q' 來關閉馬達
+        if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+            key = sys.stdin.read(1)
+            if key == 'q':
+                self.stop_motors()
+                self.get_logger().info("Motors stopped by user input.")
+                return
+
         white_x, _, yellow_x, _ = msg.data
         if white_x == -1 or yellow_x == -1:
             self.get_logger().warn("Lost track of lines!")
             return
         
-        track_center_x = (white_x + yellow_x) / 2
-        image_center_x = 320  # 假設影像寬度為 640 px
-        error = track_center_x - image_center_x
-        self.get_logger().warn(error)
-        correction = self.kp * error  # P 控制器
+        pixel_track_width = yellow_x - white_x  # 影像中的跑道寬度 (pixel)
+        if pixel_track_width == 0:
+            self.get_logger().warn("Invalid track width detected!")
+            return
         
+        mm_per_pixel = self.track_width / pixel_track_width  # 1 pixel 對應多少 mm
+
+        track_center_x = (white_x + yellow_x) / 2  # 影像中跑道的中心點
+        image_center_x = 320  # 假設影像寬度為 640 px
+        pixel_error = track_center_x - image_center_x  # 偏移量 (pixel)
+
+        real_error = pixel_error * mm_per_pixel  # 將 pixel 偏移量轉換為 mm 偏移量
+        correction = self.kp * real_error  # P 控制計算修正量
+
         twist = Twist()
         twist.linear.x = 0.1  # 固定前進速度
         twist.angular.z = -correction  # 根據誤差修正方向
         self.publisher.publish(twist)
-        
+
         left_speed = int(self.base_speed - correction * self.base_speed)
         right_speed = int(self.base_speed + correction * self.base_speed)
-        
+
         self.packetHandler.write4ByteTxRx(self.portHandler, self.DXL_ID1, self.ADDR_GOAL_VELOCITY, left_speed)
         self.packetHandler.write4ByteTxRx(self.portHandler, self.DXL_ID2, self.ADDR_GOAL_VELOCITY, right_speed)
+    
+    def stop_motors(self):
+        self.packetHandler.write4ByteTxRx(self.portHandler, self.DXL_ID1, self.ADDR_GOAL_VELOCITY, 0)
+        self.packetHandler.write4ByteTxRx(self.portHandler, self.DXL_ID2, self.ADDR_GOAL_VELOCITY, 0)
+        self.packetHandler.write1ByteTxRx(self.portHandler, self.DXL_ID1, self.ADDR_TORQUE_ENABLE, 0)
+        self.packetHandler.write1ByteTxRx(self.portHandler, self.DXL_ID2, self.ADDR_TORQUE_ENABLE, 0)
+        self.get_logger().info("Motors stopped.")
 
 def main(args=None):
     rclpy.init(args=args)

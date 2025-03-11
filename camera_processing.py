@@ -20,6 +20,9 @@ class CameraProcessing(Node):
         if not ret:
             return
 
+        height, width, _ = frame.shape
+        frame = frame[int(height / 3):, :]
+
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
         # 定義黃色與白色範圍
