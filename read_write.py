@@ -1,6 +1,8 @@
 import rclpy
 import sys
 import select  
+import tty
+import termios
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray
 from geometry_msgs.msg import Twist
@@ -45,12 +47,18 @@ class MotorControl(Node):
     
     def offset_callback(self, msg):
         # 允許使用 'q' 來關閉馬達
-        if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
-            key = sys.stdin.read(1)
-            if key == 'q':
-                self.stop_motors()
-                self.get_logger().info("Motors stopped by user input.")
-                return
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)  # 保存終端設定
+        try:
+            tty.setraw(fd)  # 設置終端為 raw 模式，使按鍵即時讀取
+            if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:  # 檢查是否有輸入
+                key = sys.stdin.read(1).lower()  # 讀取單個字元並轉小寫
+                if key == 'q':
+                    self.stop_motors()
+                    self.get_logger().info("Motors stopped by user input.")
+                    rclpy.shutdown()  # 停止 ROS2 節點
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)  # 恢復終端設定
 
         white_x, _, yellow_x, _ = msg.data
         if white_x == -1 or yellow_x == -1:
