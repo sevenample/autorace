@@ -54,7 +54,7 @@ class Lane_detection(Node):
 
         # 將ROS Image轉換成OpenCV格式
         img = self.cv_bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-        
+        R_loss = L_loss =1
         # 左右線極限X值(需重置)
         R_min_300 = 640
         R_min_240 = 640
@@ -76,18 +76,18 @@ class Lane_detection(Node):
 
         # 右線運算
         # 右線運算 - Canny邊緣運算
-        blur_gray = cv2.GaussianBlur(mask_R,(kernel_size, kernel_size), 0)
-        canny_img = cv2.Canny(blur_gray, low_threshold, high_threshold)
+        blur_gray_R = cv2.GaussianBlur(mask_R,(kernel_size, kernel_size), 0)
+        canny_img_R = cv2.Canny(blur_gray_R, low_threshold, high_threshold)
 
         # 右線運算 - 閉運算(解緩Canny斷線問題)
         kernel = np.ones((close_size,close_size),np.uint8)
-        gradient = cv2.morphologyEx(canny_img, cv2.MORPH_GRADIENT, kernel)
+        gradient_R = cv2.morphologyEx(canny_img_R, cv2.MORPH_GRADIENT, kernel)
 
         # 右線運算 - 霍夫變換
-        lines = cv2.HoughLinesP(gradient,1,np.pi/180,8,5,2)
+        lines_R = cv2.HoughLinesP(gradient_R,1,np.pi/180,8,5,2)
         # print("error")
-        if type(lines) == np.ndarray:
-            for line in lines:
+        if type(lines_R) == np.ndarray:
+            for line in lines_R:
                 x1,y1,x2,y2 = line[0]
                 if ((x1+x2)/2)>350 and ((y1+y2)/2)>W_sampling_1:
                     # cv2.line(img,(x1,y1),(x2,y2),(255,0,0),1)
@@ -106,7 +106,8 @@ class Lane_detection(Node):
                     if ((x1+x2)/2)<R_min_140:
                         R_min_140 = int((x1+x2)/2)
         else:
-            print("error")
+            print("lost white")
+            R_loss = 0
             pass
 
 

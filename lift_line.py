@@ -53,13 +53,11 @@ class Lane_detection(Node):
         # img = cv2.GaussianBlur(img, (11, 11), 0)
         hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
 
-        # 右線遮罩
+        # 左線遮罩
         lower_L = np.array([L_H_low,L_S_low,L_V_low])
         upper_L = np.array([L_H_high,L_S_high,L_V_high])
         mask_L= cv2.inRange(hsv,lower_L,upper_L)
-
-
-
+        
         # 左線運算
         # 左線運算 - Canny邊緣運算
         blur_gray_L = cv2.GaussianBlur(mask_L,(kernel_size, kernel_size), 0)
@@ -92,7 +90,8 @@ class Lane_detection(Node):
                     if ((x1+x2)/2)<L_min_140:
                         L_min_140 = int((x1+x2)/2)
         else:
-            print("error")
+            print("lose yello error")
+            L_loss = 0 
             pass
 
 
@@ -107,7 +106,7 @@ class Lane_detection(Node):
         img = cv2.polylines(img, [pts], False,(255,200,0),3)
 
         # 計算結果(車頭偏左負號)
-        R_min = ((L_min_300+L_min_240+L_min_180+L_min_140)/4)-320
+        L_min = ((L_min_300+L_min_240+L_min_180+L_min_140)/4)-320
         target_line = int(R_min-265)
         print(target_line)
         
