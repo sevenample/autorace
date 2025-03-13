@@ -109,12 +109,12 @@ class Lane_detection(Node):
         # 計算結果(車頭偏左負號)
         R_min = ((L_min_300+L_min_240+L_min_180+L_min_140)/4)-320
         target_line = int(R_min-265)
-        print(-target_line)
+        print(target_line)
         
         # target_line=int64(target_line)
         
         pub_msg=Int64()
-        pub_msg.data=-target_line
+        pub_msg.data=target_line
         self.publisher_.publish(pub_msg)
         # 輸出原圖&成果
         cv2.imshow("img", img)
