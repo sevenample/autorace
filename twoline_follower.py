@@ -32,7 +32,7 @@ class LaneDetection(Node):
             self.lane_detection_callback,
             10)
         self.subscription  # prevent unused variable warning
-        self.publisher_ = self.create_publisher(Int64, 'lane_offset', 10)
+        self.publisher_ = self.create_publisher(Int64, 'topic', 10)
         self.cv_bridge = CvBridge()
 
     '''
@@ -42,7 +42,7 @@ class LaneDetection(Node):
 
         # 轉換 ROS 影像為 OpenCV 格式
         img = self.cv_bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-        
+        L_loss ,R_loss =1
         # 左右線極限 X 值 (初始化)
         L_min_300 = L_min_240 = L_min_180 = L_min_140 = 0
         R_min_300 = R_min_240 = R_min_180 = R_min_140 = 640
@@ -75,55 +75,77 @@ class LaneDetection(Node):
         gradient_L = cv2.morphologyEx(canny_L, cv2.MORPH_GRADIENT, kernel)
 
         # 霍夫變換偵測線條 (右線)
-        lines_R = cv2.HoughLinesP(gradient_R, 1, np.pi/180, 8, 5, 2)
-        if isinstance(lines_R, np.ndarray):
-            for line in lines_R:
-                x1, y1, x2, y2 = line[0]
-                if ((x1 + x2) / 2) > 350:
-                    if ((y1 + y2) / 2) > W_sampling_1:
-                        R_min_300 = min(R_min_300, int((x1 + x2) / 2))
-                    elif ((y1 + y2) / 2) > W_sampling_2:
-                        R_min_240 = min(R_min_240, int((x1 + x2) / 2))
-                    elif ((y1 + y2) / 2) > W_sampling_3:
-                        R_min_180 = min(R_min_180, int((x1 + x2) / 2))
-                    elif ((y1 + y2) / 2) > W_sampling_4:
-                        R_min_140 = min(R_min_140, int((x1 + x2) / 2))
-
+        lines_R = cv2.HoughLinesP(gradient_R,1,np.pi/180,8,5,2)
+        # print("error")
+        if type(lines_R) == np.ndarray:
+            for line_R in lines_R:
+                x1,y1,x2,y2 = line_R[0]
+                if ((x1+x2)/2)>350 and ((y1+y2)/2)>W_sampling_1:
+                    # cv2.line(img,(x1,y1),(x2,y2),(255,0,0),1)
+                    if ((x1+x2)/2)<R_min_300:
+                        R_min_300 = int((x1+x2)/2)
+                elif ((x1+x2)/2)>350 and ((y1+y2)/2)>W_sampling_2:
+                    # cv2.line(img,(x1,y1),(x2,y2),(0,255,0),1)
+                    if ((x1+x2)/2)<R_min_240:
+                        R_min_240 = int((x1+x2)/2)
+                elif ((x1+x2)/2)>350 and ((y1+y2)/2)>W_sampling_3:
+                    # cv2.line(img,(x1,y1),(x2,y2),(0,0,255),1)
+                    if ((x1+x2)/2)<R_min_180:
+                        R_min_180 = int((x1+x2)/2)
+                elif ((x1+x2)/2)>350 and ((y1+y2)/2)>W_sampling_4:
+                    # cv2.line(img,(x1,y1),(x2,y2),(0,0,255),1)
+                    if ((x1+x2)/2)<R_min_140:
+                        R_min_140 = int((x1+x2)/2)
+        else:
+            R_loss = 0
+            pass
+        lines_L = cv2.HoughLinesP(gradient_L,1,np.pi/180,8,5,2)
         # 霍夫變換偵測線條 (左線)
-        lines_L = cv2.HoughLinesP(gradient_L, 1, np.pi/180, 8, 5, 2)
-        if isinstance(lines_L, np.ndarray):
-            for line in lines_L:
-                x1, y1, x2, y2 = line[0]
-                if ((x1 + x2) / 2) < 320:
-                    if ((y1 + y2) / 2) > W_sampling_1:
-                        L_min_300 = max(L_min_300, int((x1 + x2) / 2))
-                    elif ((y1 + y2) / 2) > W_sampling_2:
-                        L_min_240 = max(L_min_240, int((x1 + x2) / 2))
-                    elif ((y1 + y2) / 2) > W_sampling_3:
-                        L_min_180 = max(L_min_180, int((x1 + x2) / 2))
-                    elif ((y1 + y2) / 2) > W_sampling_4:
-                        L_min_140 = max(L_min_140, int((x1 + x2) / 2))
+        if type(lines_L) == np.ndarray:
+            for line_L in lines_L:
+                x1,y1,x2,y2 = line_L[0]
+                if ((x1+x2)/2)<350 and ((y1+y2)/2)>W_sampling_1:
+                    # cv2.line(img,(x1,y1),(x2,y2),(255,0,0),1)
+                    if ((x1+x2)/2)>L_min_300:
+                        L_min_300 = int((x1+x2)/2)
+                elif ((x1+x2)/2)<350 and ((y1+y2)/2)>W_sampling_2:
+                    # cv2.line(img,(x1,y1),(x2,y2),(0,255,0),1)
+                    if ((x1+x2)/2)>L_min_240:
+                        L_min_240 = int((x1+x2)/2)
+                elif ((x1+x2)/2)<350 and ((y1+y2)/2)>W_sampling_3:
+                    # cv2.line(img,(x1,y1),(x2,y2),(0,0,255),1)
+                    if ((x1+x2)/2)>L_min_180:
+                        L_min_180 = int((x1+x2)/2)
+                elif ((x1+x2)/2)<350 and ((y1+y2)/2)>W_sampling_4:
+                    # cv2.line(img,(x1,y1),(x2,y2),(0,0,255),1)
+                    if ((x1+x2)/2)>L_min_140:
+                        L_min_140 = int((x1+x2)/2)
+        else:
+            L_loss = 0
+            pass
 
         # 計算左右線平均值
-        L_min = (L_min_300 + L_min_240 + L_min_180 + L_min_140) / 4
-        R_min = (R_min_300 + R_min_240 + R_min_180 + R_min_140) / 4
+        L_min = ((L_min_300+L_min_240+L_min_180+L_min_140)/4)
+        L_target_line = int(L_min+55)
 
-        # 計算車輛偏移量
-        if L_min > 0 and R_min < 640:
-            center_line = (L_min + R_min) / 2
-            target_line = int(center_line - 320)  # 車道中央偏移量
-        elif L_min > 0:
-            target_line = int(L_min - 55)  # 只偵測到左線
-        elif R_min < 640:
-            target_line = int(R_min - 265)  # 只偵測到右線
+        R_min = ((R_min_300+R_min_240+R_min_180+R_min_140)/4)-320
+        R_target_line = int(R_min-265)
+        if(R_loss and L_loss):
+            target_line =(L_target_line+R_target_line)/2
+            print(f"左偏移量: {L_target_line}, 右偏移量: {R_target_line}")
+        elif(R_loss):
+            target_line =R_target_line
+            print(f"右偏移量: {R_target_line}")
+        elif(L_loss):
+            target_line =L_target_line
+            print(f"左偏移量: {L_target_line}")
         else:
-            target_line = 0  # 沒偵測到線條
-
-        print(f"偏移量: {target_line}")
-
+            target_line =55
+            print("LOSS ALL LINE")
+        
         # 發布結果
-        pub_msg = Int64()
-        pub_msg.data = target_line
+        pub_msg=Int64()
+        pub_msg.data=-target_line
         self.publisher_.publish(pub_msg)
 
         # 顯示結果

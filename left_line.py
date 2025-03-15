@@ -11,7 +11,7 @@ from cv_bridge import CvBridge
 L_H_low, L_S_low, L_V_low = 20, 100, 100
 L_H_high, L_S_high, L_V_high = 40, 255, 255
 
-# 採樣間距
+# ??�樣???�?
 W_sampling_1 = 305
 W_sampling_2 = 270
 W_sampling_3 = 235
@@ -38,58 +38,58 @@ class Lane_detection(Node):
 
 
     '''
-        右循線
+        ??�循�?
     '''
     def lift_line(self, msg, kernel_size=25, low_threshold=10, high_threshold=20, close_size=5):
 
-        # 將ROS Image轉換成OpenCV格式
+        # �?ROS Image�???????OpenCV??��??
         img = self.cv_bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         
-        # 左右線極限X值(需重置)
+        # 左�?��??極�??X???(??????�?)
         L_min_300 = L_min_240 = L_min_180 = L_min_140 = 0
-        # 影像預處理
+        # 影�???????????
         # img = copy(img)
         img = cv2.resize(img,(640,360))
         # img = cv2.GaussianBlur(img, (11, 11), 0)
         hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
 
-        # 右線遮罩
+        # ??��????�罩
         lower_L = np.array([L_H_low,L_S_low,L_V_low])
         upper_L = np.array([L_H_high,L_S_high,L_V_high])
         mask_L= cv2.inRange(hsv,lower_L,upper_L)
 
 
 
-        # 左線運算
-        # 左線運算 - Canny邊緣運算
+        # 左�?????�?
+        # 左�?????�? - Canny???�????�?
         blur_gray_L = cv2.GaussianBlur(mask_L,(kernel_size, kernel_size), 0)
         canny_img_L = cv2.Canny(blur_gray_L, low_threshold, high_threshold)
 
-        # 右線運算 - 閉運算(解緩Canny斷線問題)
+        # ??��?????�? - ??????�?(�?緩Canny??��?????�?)
         kernel = np.ones((close_size,close_size),np.uint8)
         gradient_L = cv2.morphologyEx(canny_img_L, cv2.MORPH_GRADIENT, kernel)
 
-        # 右線運算 - 霍夫變換
+        # ??��?????�? - ???夫�?????
         lines_L = cv2.HoughLinesP(gradient_L,1,np.pi/180,8,5,2)
         # print("error")
         if type(lines_L) == np.ndarray:
-            for line in lines_L:
-                x1,y1,x2,y2 = line[0]
-                if ((x1+x2)/2)>350 and ((y1+y2)/2)>W_sampling_1:
+            for line_L in lines_L:
+                x1,y1,x2,y2 = line_L[0]
+                if ((x1+x2)/2)<350 and ((y1+y2)/2)>W_sampling_1:
                     # cv2.line(img,(x1,y1),(x2,y2),(255,0,0),1)
-                    if ((x1+x2)/2)<L_min_300:
+                    if ((x1+x2)/2)>L_min_300:
                         L_min_300 = int((x1+x2)/2)
-                elif ((x1+x2)/2)>350 and ((y1+y2)/2)>W_sampling_2:
+                elif ((x1+x2)/2)<350 and ((y1+y2)/2)>W_sampling_2:
                     # cv2.line(img,(x1,y1),(x2,y2),(0,255,0),1)
-                    if ((x1+x2)/2)<L_min_240:
+                    if ((x1+x2)/2)>L_min_240:
                         L_min_240 = int((x1+x2)/2)
-                elif ((x1+x2)/2)>350 and ((y1+y2)/2)>W_sampling_3:
+                elif ((x1+x2)/2)<350 and ((y1+y2)/2)>W_sampling_3:
                     # cv2.line(img,(x1,y1),(x2,y2),(0,0,255),1)
-                    if ((x1+x2)/2)<L_min_180:
+                    if ((x1+x2)/2)>L_min_180:
                         L_min_180 = int((x1+x2)/2)
-                elif ((x1+x2)/2)>350 and ((y1+y2)/2)>W_sampling_4:
+                elif ((x1+x2)/2)<350 and ((y1+y2)/2)>W_sampling_4:
                     # cv2.line(img,(x1,y1),(x2,y2),(0,0,255),1)
-                    if ((x1+x2)/2)<L_min_140:
+                    if ((x1+x2)/2)>L_min_140:
                         L_min_140 = int((x1+x2)/2)
         else:
             print("error")
@@ -106,9 +106,9 @@ class Lane_detection(Node):
         pts = pts.reshape((-1, 1, 2))
         img = cv2.polylines(img, [pts], False,(255,200,0),3)
 
-        # 計算結果(車頭偏左負號)
-        R_min = ((L_min_300+L_min_240+L_min_180+L_min_140)/4)-320
-        target_line = int(R_min-265)
+        # �?�?�????(�???��??左�?????)
+        R_min = ((L_min_300+L_min_240+L_min_180+L_min_140)/4)
+        target_line = int(R_min+55)
         print(-target_line)
         
         # target_line=int64(target_line)
@@ -116,7 +116,7 @@ class Lane_detection(Node):
         pub_msg=Int64()
         pub_msg.data=-target_line
         self.publisher_.publish(pub_msg)
-        # 輸出原圖&成果
+        # 輸�?��?????&??????
         cv2.imshow("img", img)
         cv2.imshow("mask_L", mask_L)
         cv2.waitKey(1)
