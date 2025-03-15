@@ -7,59 +7,80 @@ from std_msgs.msg import Int64
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 
-# ¥k°¼½u (¥Õ½u/¬õ½u) HSV »Ö­È
-R_H_low, R_S_low, R_V_low = 0, 0, 236
-R_H_high, R_S_high, R_V_high = 360, 23, 255
-
-# ¥ª°¼½u (¶À½u) HSV »Ö­È
 L_H_low, L_S_low, L_V_low = 20, 100, 100
 L_H_high, L_S_high, L_V_high = 40, 255, 255
 
-# ±Ä¼Ë¶¡¶Z
+R_H_low = 0
+R_S_low = 0
+R_V_low = 236
+R_H_high = 360
+R_S_high = 23
+R_V_high = 255
+
+# ??¡æ¨£???è·?
 W_sampling_1 = 305
 W_sampling_2 = 270
 W_sampling_3 = 235
 W_sampling_4 = 200
 
 
-class LaneDetection(Node):
+
+class Lane_detection(Node):
 
     def __init__(self):
         super().__init__('Lane_detection')
         self.subscription = self.create_subscription(
             Image,
             '/image/image_raw',
-            self.lane_detection_callback,
+            self.two_line,
             10)
         self.subscription  # prevent unused variable warning
         self.publisher_ = self.create_publisher(Int64, 'topic', 10)
-        self.cv_bridge = CvBridge()
+        self.cv_bridge=CvBridge()
+    # def listener_callback(self, msg):
+    #     self.get_logger().info('I heard: "%s"' % msg.data)
+
+
+
 
     '''
-        ¥ª¥k´`½uÀË´ú
+        ??³å¾ªç·?
     '''
-    def lane_detection_callback(self, msg, kernel_size=25, low_threshold=10, high_threshold=20, close_size=5):
+    def two_line(self, msg, kernel_size=25, low_threshold=10, high_threshold=20, close_size=5):
 
-        # Âà´« ROS ¼v¹³¬° OpenCV ®æ¦¡
+        # å°?ROS Imageè½???????OpenCV??¼å??
         img = self.cv_bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-        L_loss ,R_loss =1
-        # ¥ª¥k½u·¥­­ X ­È (ªì©l¤Æ)
+        R_loss = L_loss =True
+        # å·¦å?³ç??æ¥µé??X???(??????ç½?)
         L_min_300 = L_min_240 = L_min_180 = L_min_140 = 0
-        R_min_300 = R_min_240 = R_min_180 = R_min_140 = 640
+        R_min_300 = 640
+        R_min_240 = 640
+        R_min_180 = 640
+        R_min_140 = 640
 
-        # ¼v¹³¹w³B²z
-        img = cv2.resize(img, (640, 360))
-        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        # å½±å???????????
+        # img = copy(img)
+        img = cv2.resize(img,(640,360))
+        # img = cv2.GaussianBlur(img, (11, 11), 0)
+        hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
 
-        # ¥k½u¾B¸n (¥Õ/¬õ½u)
-        lower_R = np.array([R_H_low, R_S_low, R_V_low])
-        upper_R = np.array([R_H_high, R_S_high, R_V_high])
-        mask_R = cv2.inRange(hsv, lower_R, upper_R)
+        # ??³ç????®ç½©
+        lower_R = np.array([R_H_low,R_S_low,R_V_low])
+        upper_R = np.array([R_H_high,R_S_high,R_V_high])
+        mask_R = cv2.inRange(hsv,lower_R,upper_R)
+        #å·¦ç????®ç½©
+        lower_L = np.array([L_H_low,L_S_low,L_V_low])
+        upper_L = np.array([L_H_high,L_S_high,L_V_high])
+        mask_L= cv2.inRange(hsv,lower_L,upper_L)
 
-        # ¥ª½u¾B¸n (¶À½u)
-        lower_L = np.array([L_H_low, L_S_low, L_V_low])
-        upper_L = np.array([L_H_high, L_S_high, L_V_high])
-        mask_L = cv2.inRange(hsv, lower_L, upper_L)
+        # ??³ç?????ç®?
+        # ??³ç?????ç®? - Canny???ç·????ç®?
+        blur_gray_R = cv2.GaussianBlur(mask_R,(kernel_size, kernel_size), 0)
+        canny_img_R = cv2.Canny(blur_gray_R, low_threshold, high_threshold)
+        # å·¦ç?????ç®?
+        # å·¦ç?????ç®? - Canny???ç·????ç®?
+        blur_gray_L = cv2.GaussianBlur(mask_L,(kernel_size, kernel_size), 0)
+        canny_img_L = cv2.Canny(blur_gray_L, low_threshold, high_threshold)
 
         # Canny Ãä½tÀË´ú (¥k½u)
         blur_R = cv2.GaussianBlur(mask_R, (kernel_size, kernel_size), 0)
@@ -97,66 +118,78 @@ class LaneDetection(Node):
                     if ((x1+x2)/2)<R_min_140:
                         R_min_140 = int((x1+x2)/2)
         else:
-            R_loss = 0
+            print("lost white")
+            R_loss = False
             pass
-        lines_L = cv2.HoughLinesP(gradient_L,1,np.pi/180,8,5,2)
-        # ÀN¤ÒÅÜ´«°»´ú½u±ø (¥ª½u)
         if type(lines_L) == np.ndarray:
-            for line_L in lines_L:
-                x1,y1,x2,y2 = line_L[0]
-                if ((x1+x2)/2)<350 and ((y1+y2)/2)>W_sampling_1:
+            for line in lines_L:
+                x1,y1,x2,y2 = line[0]
+                if ((x1+x2)/2)>350 and ((y1+y2)/2)>W_sampling_1:
                     # cv2.line(img,(x1,y1),(x2,y2),(255,0,0),1)
-                    if ((x1+x2)/2)>L_min_300:
+                    if ((x1+x2)/2)<L_min_300:
                         L_min_300 = int((x1+x2)/2)
-                elif ((x1+x2)/2)<350 and ((y1+y2)/2)>W_sampling_2:
+                elif ((x1+x2)/2)>350 and ((y1+y2)/2)>W_sampling_2:
                     # cv2.line(img,(x1,y1),(x2,y2),(0,255,0),1)
-                    if ((x1+x2)/2)>L_min_240:
+                    if ((x1+x2)/2)<L_min_240:
                         L_min_240 = int((x1+x2)/2)
-                elif ((x1+x2)/2)<350 and ((y1+y2)/2)>W_sampling_3:
+                elif ((x1+x2)/2)>350 and ((y1+y2)/2)>W_sampling_3:
                     # cv2.line(img,(x1,y1),(x2,y2),(0,0,255),1)
-                    if ((x1+x2)/2)>L_min_180:
+                    if ((x1+x2)/2)<L_min_180:
                         L_min_180 = int((x1+x2)/2)
-                elif ((x1+x2)/2)<350 and ((y1+y2)/2)>W_sampling_4:
+                elif ((x1+x2)/2)>350 and ((y1+y2)/2)>W_sampling_4:
                     # cv2.line(img,(x1,y1),(x2,y2),(0,0,255),1)
-                    if ((x1+x2)/2)>L_min_140:
+                    if ((x1+x2)/2)<L_min_140:
                         L_min_140 = int((x1+x2)/2)
         else:
-            L_loss = 0
+            print("lose yello error")
+            L_loss = False
             pass
 
-        # ­pºâ¥ª¥k½u¥­§¡­È
-        L_min = ((L_min_300+L_min_240+L_min_180+L_min_140)/4)
-        L_target_line = int(L_min+55)
 
+        # cv2.rectangle(img, (L_min_300, W_sampling_1), (R_min_300, 360), (255,0,0), 0) 
+        # cv2.rectangle(img, (L_min_240, W_sampling_2), (R_min_240, W_sampling_1), (0,255,0), 0) 
+        # cv2.rectangle(img, (L_min_180, W_sampling_3), (R_min_180, W_sampling_2), (0,0,255), 0)
+        # cv2.rectangle(img, (L_min_140, W_sampling_4), (R_min_140, W_sampling_3), (0,255,255), 0) 
+
+        pts = np.array([[R_min_300,(360+W_sampling_1)/2], [R_min_240,(W_sampling_1+W_sampling_2)/2], [R_min_180,(W_sampling_2+W_sampling_3)/2],[R_min_140,(W_sampling_3+W_sampling_4)/2]], np.int32)
+        pts = pts.reshape((-1, 1, 2))
+        img = cv2.polylines(img, [pts], False,(255,200,0),3)
+
+        # è¨?ç®?çµ????(è»???­å??å·¦è?????)
+        L_min = ((L_min_300+L_min_240+L_min_180+L_min_140)/4)-320
         R_min = ((R_min_300+R_min_240+R_min_180+R_min_140)/4)-320
         R_target_line = int(R_min-265)
-        if(R_loss and L_loss):
-            target_line =(L_target_line+R_target_line)/2
-            print(f"¥ª°¾²¾¶q: {L_target_line}, ¥k°¾²¾¶q: {R_target_line}")
-        elif(R_loss):
-            target_line =R_target_line
-            print(f"¥k°¾²¾¶q: {R_target_line}")
+        L_target_line = int(L_min-265)
+        if(L_loss and R_loss):
+            target_line = (R_target_line+L_target_line)/2
         elif(L_loss):
-            target_line =L_target_line
-            print(f"¥ª°¾²¾¶q: {L_target_line}")
-        else:
-            target_line =55
-            print("LOSS ALL LINE")
+            target_line = - R_target_line
+        elif(R_loss):
+            target_line = -L_target_line
+        print(target_line)
         
-        # µo¥¬µ²ªG
+        # target_line=int64(target_line)
+        
         pub_msg=Int64()
-        pub_msg.data=-target_line
+        pub_msg.data=target_line
         self.publisher_.publish(pub_msg)
-
-        # Åã¥Üµ²ªG
+        # è¼¸å?ºå?????&??????
+        # cv2.imshow("img", img)
         cv2.imshow("mask_R", mask_R)
-        cv2.imshow("mask_L", mask_L)
         cv2.waitKey(1)
+
+        # return -target_line, img
 
 
 def main(args=None):
     rclpy.init(args=args)
-    lane_detection = LaneDetection()
+
+    lane_detection = Lane_detection()
+
     rclpy.spin(lane_detection)
+
+    # Destroy the node explicitly
+    # (optional - otherwise it will be done automatically
+    # when the garbage collector destroys the node object)
     lane_detection.destroy_node()
     rclpy.shutdown()

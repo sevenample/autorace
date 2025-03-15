@@ -54,9 +54,13 @@ class Lane_detection(Node):
 
         # å°?ROS Imageè½???????OpenCV??¼å??
         img = self.cv_bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-        
+        R_loss = L_loss =1
         # å·¦å?³ç??æ¥µé??X???(??????ç½?)
-        R_min_300 = R_min_240 = R_min_180 = R_min_140 = 640
+        R_min_300 = 640
+        R_min_240 = 640
+        R_min_180 = 640
+        R_min_140 = 640
+
         # å½±å???????????
         # img = copy(img)
         img = cv2.resize(img,(640,360))
@@ -77,13 +81,13 @@ class Lane_detection(Node):
 
         # ??³ç?????ç®? - ??????ç®?(è§?ç·©Canny??·ç?????é¡?)
         kernel = np.ones((close_size,close_size),np.uint8)
-        gradient = cv2.morphologyEx(canny_img, cv2.MORPH_GRADIENT, kernel)
+        gradient_R = cv2.morphologyEx(canny_img_R, cv2.MORPH_GRADIENT, kernel)
 
         # ??³ç?????ç®? - ???å¤«è?????
         lines = cv2.HoughLinesP(gradient,1,np.pi/180,8,5,2)
         # print("error")
-        if type(lines) == np.ndarray:
-            for line in lines:
+        if type(lines_R) == np.ndarray:
+            for line in lines_R:
                 x1,y1,x2,y2 = line[0]
                 if ((x1+x2)/2)>350 and ((y1+y2)/2)>W_sampling_1:
                     # cv2.line(img,(x1,y1),(x2,y2),(255,0,0),1)
@@ -102,7 +106,8 @@ class Lane_detection(Node):
                     if ((x1+x2)/2)<R_min_140:
                         R_min_140 = int((x1+x2)/2)
         else:
-            print("error")
+            print("lost white")
+            R_loss = 0
             pass
 
 

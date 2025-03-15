@@ -53,13 +53,11 @@ class Lane_detection(Node):
         # img = cv2.GaussianBlur(img, (11, 11), 0)
         hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
 
-        # ??³ç????®ç½©
+        # å·¦ç????®ç½©
         lower_L = np.array([L_H_low,L_S_low,L_V_low])
         upper_L = np.array([L_H_high,L_S_high,L_V_high])
         mask_L= cv2.inRange(hsv,lower_L,upper_L)
-
-
-
+        
         # å·¦ç?????ç®?
         # å·¦ç?????ç®? - Canny???ç·????ç®?
         blur_gray_L = cv2.GaussianBlur(mask_L,(kernel_size, kernel_size), 0)
@@ -92,7 +90,8 @@ class Lane_detection(Node):
                     if ((x1+x2)/2)>L_min_140:
                         L_min_140 = int((x1+x2)/2)
         else:
-            print("error")
+            print("lose yello error")
+            L_loss = 0 
             pass
 
 
@@ -107,14 +106,14 @@ class Lane_detection(Node):
         img = cv2.polylines(img, [pts], False,(255,200,0),3)
 
         # è¨?ç®?çµ????(è»???­å??å·¦è?????)
-        R_min = ((L_min_300+L_min_240+L_min_180+L_min_140)/4)
-        target_line = int(R_min+55)
-        print(-target_line)
+        L_min = ((L_min_300+L_min_240+L_min_180+L_min_140)/4)-320
+        target_line = int(R_min-265)
+        print(target_line)
         
         # target_line=int64(target_line)
         
         pub_msg=Int64()
-        pub_msg.data=-target_line
+        pub_msg.data=target_line
         self.publisher_.publish(pub_msg)
         # è¼¸å?ºå?????&??????
         cv2.imshow("img", img)
