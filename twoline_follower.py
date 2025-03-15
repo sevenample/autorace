@@ -17,7 +17,7 @@ R_H_high = 360
 R_S_high = 23
 R_V_high = 255
 
-# ??¡æ¨£???è·?
+# ï¿½ï¿½âŠ¥è¦‹ï¿½ï¿½ï¿½é ï¿½
 W_sampling_1 = 305
 W_sampling_2 = 270
 W_sampling_3 = 235
@@ -44,58 +44,58 @@ class Lane_detection(Node):
 
 
     '''
-        ??³å¾ªç·?
+        ï¿½ï¿½å–³å„èºï¿½
     '''
     def two_line(self, msg, kernel_size=25, low_threshold=10, high_threshold=20, close_size=5):
 
-        # å°?ROS Imageè½???????OpenCV??¼å??
+        # æ’ ï¿½ROS Imageé §ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½OpenCVï¿½ï¿½æ¾†ï¿½ï¿½
         img = self.cv_bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         R_loss = L_loss =True
-        # å·¦å?³ç??æ¥µé??X???(??????ç½?)
+        # æ’Œè¡€ï¿½å–Ÿï¿½ï¿½ç’†èŸï¿½ï¿½Xï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½èµï¿½)
         L_min_300 = L_min_240 = L_min_180 = L_min_140 = 0
         R_min_300 = 640
         R_min_240 = 640
         R_min_180 = 640
         R_min_140 = 640
 
-        # å½±å???????????
+        # æ•¶å‹—ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         # img = copy(img)
         img = cv2.resize(img,(640,360))
         # img = cv2.GaussianBlur(img, (11, 11), 0)
         hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
 
-        # ??³ç????®ç½©
+        # ï¿½ï¿½å–Ÿï¿½ï¿½ï¿½ï¿½æ¡ƒè”—
         lower_R = np.array([R_H_low,R_S_low,R_V_low])
         upper_R = np.array([R_H_high,R_S_high,R_V_high])
         mask_R = cv2.inRange(hsv,lower_R,upper_R)
-        #å·¦ç????®ç½©
+        #æ’Œè¡£ï¿½ï¿½ï¿½ï¿½æ¡ƒè”—
         lower_L = np.array([L_H_low,L_S_low,L_V_low])
         upper_L = np.array([L_H_high,L_S_high,L_V_high])
         mask_L= cv2.inRange(hsv,lower_L,upper_L)
 
-        # ??³ç?????ç®?
-        # ??³ç?????ç®? - Canny???ç·????ç®?
+        # ï¿½ï¿½å–Ÿï¿½ï¿½ï¿½ï¿½ï¿½èï¿½
+        # ï¿½ï¿½å–Ÿï¿½ï¿½ï¿½ï¿½ï¿½èï¿½ - Cannyï¿½ï¿½ï¿½èºï¿½ï¿½ï¿½ï¿½èï¿½
         blur_gray_R = cv2.GaussianBlur(mask_R,(kernel_size, kernel_size), 0)
         canny_img_R = cv2.Canny(blur_gray_R, low_threshold, high_threshold)
-        # å·¦ç?????ç®?
-        # å·¦ç?????ç®? - Canny???ç·????ç®?
+        # æ’Œè¡£ï¿½ï¿½ï¿½ï¿½ï¿½èï¿½
+        # æ’Œè¡£ï¿½ï¿½ï¿½ï¿½ï¿½èï¿½ - Cannyï¿½ï¿½ï¿½èºï¿½ï¿½ï¿½ï¿½èï¿½
         blur_gray_L = cv2.GaussianBlur(mask_L,(kernel_size, kernel_size), 0)
         canny_img_L = cv2.Canny(blur_gray_L, low_threshold, high_threshold)
 
-        # Canny Ãä½tÀË´ú (¥k½u)
+        # Canny é‚Šç·£æª¢æ¸¬ (å³ç·š)
         blur_R = cv2.GaussianBlur(mask_R, (kernel_size, kernel_size), 0)
         canny_R = cv2.Canny(blur_R, low_threshold, high_threshold)
 
-        # Canny Ãä½tÀË´ú (¥ª½u)
+        # Canny é‚Šç·£æª¢æ¸¬ (å·¦ç·š)
         blur_L = cv2.GaussianBlur(mask_L, (kernel_size, kernel_size), 0)
         canny_L = cv2.Canny(blur_L, low_threshold, high_threshold)
 
-        # ³¬¹Bºâ (­×´_Ãä½tÂ_µõ)
+        # é–‰é‹ç®— (ä¿®å¾©é‚Šç·£æ–·è£‚)
         kernel = np.ones((close_size, close_size), np.uint8)
         gradient_R = cv2.morphologyEx(canny_R, cv2.MORPH_GRADIENT, kernel)
         gradient_L = cv2.morphologyEx(canny_L, cv2.MORPH_GRADIENT, kernel)
 
-        # ÀN¤ÒÅÜ´«°»´ú½u±ø (¥k½u)
+        # éœå¤«è®Šæ›åµæ¸¬ç·šæ¢ (å³ç·š)
         lines_R = cv2.HoughLinesP(gradient_R,1,np.pi/180,8,5,2)
         # print("error")
         if type(lines_R) == np.ndarray:
@@ -155,7 +155,7 @@ class Lane_detection(Node):
         pts = pts.reshape((-1, 1, 2))
         img = cv2.polylines(img, [pts], False,(255,200,0),3)
 
-        # è¨?ç®?çµ????(è»???­å??å·¦è?????)
+        # é–®ï¿½èï¿½è¯ï¿½ï¿½ï¿½ï¿½(é  ï¿½ï¿½ï¿½å‰–ï¿½ï¿½æ’Œè¥¿ï¿½ï¿½ï¿½ï¿½ï¿½)
         L_min = ((L_min_300+L_min_240+L_min_180+L_min_140)/4)-320
         R_min = ((R_min_300+R_min_240+R_min_180+R_min_140)/4)-320
         R_target_line = int(R_min-265)
@@ -173,7 +173,7 @@ class Lane_detection(Node):
         pub_msg=Int64()
         pub_msg.data=target_line
         self.publisher_.publish(pub_msg)
-        # è¼¸å?ºå?????&??????
+        # é ›è©¨ï¿½ç®ï¿½ï¿½ï¿½ï¿½ï¿½&ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         # cv2.imshow("img", img)
         cv2.imshow("mask_R", mask_R)
         cv2.waitKey(1)

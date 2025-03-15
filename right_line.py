@@ -21,7 +21,7 @@ R_H_high = 360
 R_S_high = 23
 R_V_high = 255
 
-# ??¡æ¨£???è·?
+# ??âŠ¥è¦‹???é ?
 W_sampling_1 = 305
 W_sampling_2 = 270
 W_sampling_3 = 235
@@ -48,42 +48,42 @@ class Lane_detection(Node):
 
 
     '''
-        ??³å¾ªç·?
+        ??å–³å„èº?
     '''
     def right_line(self, msg, kernel_size=25, low_threshold=10, high_threshold=20, close_size=5):
 
-        # å°?ROS Imageè½???????OpenCV??¼å??
+        # æ’ ?ROS Imageé §???????OpenCV??æ¾†??
         img = self.cv_bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         R_loss = L_loss =1
-        # å·¦å?³ç??æ¥µé??X???(??????ç½?)
+        # æ’Œè¡€ï¿½å–Ÿï¿½ï¿½ç’†èŸï¿½ï¿½Xï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½èµï¿½)
         R_min_300 = 640
         R_min_240 = 640
         R_min_180 = 640
         R_min_140 = 640
 
-        # å½±å???????????
+        # æ•¶å‹—ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         # img = copy(img)
         img = cv2.resize(img,(640,360))
         # img = cv2.GaussianBlur(img, (11, 11), 0)
         hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
 
-        # ??³ç????®ç½©
+        # ??å–Ÿ????æ¡ƒè”—
         lower_R = np.array([R_H_low,R_S_low,R_V_low])
         upper_R = np.array([R_H_high,R_S_high,R_V_high])
         mask_R = cv2.inRange(hsv,lower_R,upper_R)
 
 
 
-        # ??³ç?????ç®?
-        # ??³ç?????ç®? - Canny???ç·????ç®?
+        # ??å–Ÿ?????è?
+        # ??å–Ÿ?????è? - Canny???èº????è?
         blur_gray = cv2.GaussianBlur(mask_R,(kernel_size, kernel_size), 0)
         canny_img = cv2.Canny(blur_gray, low_threshold, high_threshold)
 
-        # ??³ç?????ç®? - ??????ç®?(è§?ç·©Canny??·ç?????é¡?)
+        # ??å–Ÿ?????è? - ??????è?(é–«?èºå’€anny??ç‘?????æ†¿?)
         kernel = np.ones((close_size,close_size),np.uint8)
         gradient_R = cv2.morphologyEx(canny_img_R, cv2.MORPH_GRADIENT, kernel)
 
-        # ??³ç?????ç®? - ???å¤«è?????
+        # ??å–Ÿ?????è? - ???æ†­æ€¨?????
         lines = cv2.HoughLinesP(gradient,1,np.pi/180,8,5,2)
         # print("error")
         if type(lines_R) == np.ndarray:
@@ -121,7 +121,7 @@ class Lane_detection(Node):
         pts = pts.reshape((-1, 1, 2))
         img = cv2.polylines(img, [pts], False,(255,200,0),3)
 
-        # è¨?ç®?çµ????(è»???­å??å·¦è?????)
+        # é–®?è?è¯????(é  ???å‰–??æ’Œè¥¿?????)
         R_min = ((R_min_300+R_min_240+R_min_180+R_min_140)/4)-320
         target_line = int(R_min-265)
         print(-target_line)
@@ -131,7 +131,7 @@ class Lane_detection(Node):
         pub_msg=Int64()
         pub_msg.data=-target_line
         self.publisher_.publish(pub_msg)
-        # è¼¸å?ºå?????&??????
+        # é ›è©¨?ç®?????&??????
         # cv2.imshow("img", img)
         cv2.imshow("mask_R", mask_R)
         cv2.waitKey(1)
