@@ -16,8 +16,8 @@ DXL_MINIMUM_POSITION_VALUE = 1000
 DXL_MAXIMUM_POSITION_VALUE = 4095
 BAUDRATE = 1000000
 PROTOCOL_VERSION = 2.0
-DXL_ID1 = 1  # ¥ª°¨¹F
-DXL_ID2 = 2  # ¥k°¨¹F
+DXL_ID1 = 1   # å·¦é¦¬é”
+DXL_ID2 = 2   # å³é¦¬é”
 DEVICENAME = '/dev/ttyACM0'
 TORQUE_ENABLE = 1
 TORQUE_DISABLE = 0
@@ -41,47 +41,47 @@ class MotorControl(Node):
         self.packetHandler.write1ByteTxRx(self.portHandler, self.DXL_ID1, self.ADDR_TORQUE_ENABLE, 1)
         self.packetHandler.write1ByteTxRx(self.portHandler, self.DXL_ID2, self.ADDR_TORQUE_ENABLE, 1)
         
-        self.track_width = 640.0  # ¶]¹D¼e«× (mm)
-        self.kp = 0.005  # P ±±¨î¼W¯q
-        self.base_speed = 50  # ³]©w°òÂ¦³t«×
+        self.track_width = 640.0  # è·‘é“å¯¬åº¦ (mm)
+        self.kp = 0.005 # P æ§åˆ¶å¢ç›Š
+        self.base_speed = 50 # è¨­å®šåŸºç¤é€Ÿåº¦
     
     def offset_callback(self, msg):
-        # ¤¹³\¨Ï¥Î 'q' ¨ÓÃö³¬°¨¹F
+       # å…è¨±ä½¿ç”¨ 'q' ä¾†é—œé–‰é¦¬é”
         fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)  # «O¦s²×ºİ³]©w
+        old_settings = termios.tcgetattr(fd)  # ä¿å­˜çµ‚ç«¯è¨­å®š
         try:
-            tty.setraw(fd)  # ³]¸m²×ºİ¬° raw ¼Ò¦¡¡A¨Ï«öÁä§Y®ÉÅª¨ú
-            if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:  # ÀË¬d¬O§_¦³¿é¤J
-                key = sys.stdin.read(1).lower()  # Åª¨ú³æ­Ó¦r¤¸¨ÃÂà¤p¼g
+            tty.setraw(fd) # è¨­ç½®çµ‚ç«¯ç‚º raw æ¨¡å¼ï¼Œä½¿æŒ‰éµå³æ™‚è®€å–
+            if sys.stdin in select.select([sys.stdin], [], [], 0)[0]: # æª¢æŸ¥æ˜¯å¦æœ‰è¼¸å…¥
+                key = sys.stdin.read(1).lower() # è®€å–å–®å€‹å­—å…ƒä¸¦è½‰å°å¯«g
                 if key == 'q':
                     self.stop_motors()
                     self.get_logger().info("Motors stopped by user input.")
-                    rclpy.shutdown()  # °±¤î ROS2 ¸`ÂI
+                    rclpy.shutdown()  # åœæ­¢ ROS2 ç¯€é»
         finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)  # «ì´_²×ºİ³]©w
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)  # æ¢å¾©çµ‚ç«¯è¨­å®š
 
         white_x, _, yellow_x, _ = msg.data
         if white_x == -1 or yellow_x == -1:
             self.get_logger().warn("Lost track of lines!")
             return
         
-        pixel_track_width = yellow_x - white_x  # ¼v¹³¤¤ªº¶]¹D¼e«× (pixel)
+        pixel_track_width = yellow_x - white_x  # å½±åƒä¸­çš„è·‘é“å¯¬åº¦ (pixel)
         if pixel_track_width == 0:
             self.get_logger().warn("Invalid track width detected!")
             return
         
-        mm_per_pixel = self.track_width / pixel_track_width  # 1 pixel ¹ïÀ³¦h¤Ö mm
+        mm_per_pixel = self.track_width / pixel_track_width # 1 pixel å°æ‡‰å¤šå°‘ mm
 
-        track_center_x = (white_x + yellow_x) / 2  # ¼v¹³¤¤¶]¹Dªº¤¤¤ßÂI
-        image_center_x = 320  # °²³]¼v¹³¼e«×¬° 640 px
-        pixel_error = track_center_x - image_center_x  # °¾²¾¶q (pixel)
+        track_center_x = (white_x + yellow_x) / 2  # å½±åƒä¸­è·‘é“çš„ä¸­å¿ƒé»
+        image_center_x = 320   # å‡è¨­å½±åƒå¯¬åº¦ç‚º 640 px
+        pixel_error = track_center_x - image_center_x # åç§»é‡ (pixel)
 
-        real_error = pixel_error * mm_per_pixel  # ±N pixel °¾²¾¶qÂà´«¬° mm °¾²¾¶q
-        correction = self.kp * real_error  # P ±±¨î­pºâ­×¥¿¶q
+        real_error = pixel_error * mm_per_pixel  # å°‡ pixel åç§»é‡è½‰æ›ç‚º mm åç§»é‡
+        correction = self.kp * real_error  # P æ§åˆ¶è¨ˆç®—ä¿®æ­£é‡
 
         twist = Twist()
-        twist.linear.x = 0.1  # ©T©w«e¶i³t«×
-        twist.angular.z = -correction  # ®Ú¾Ú»~®t­×¥¿¤è¦V
+        twist.linear.x = 0.1 # å›ºå®šå‰é€²é€Ÿåº¦
+        twist.angular.z = -correction   # æ ¹æ“šèª¤å·®ä¿®æ­£æ–¹å‘
         self.publisher.publish(twist)
 
         left_speed = int(self.base_speed - correction * self.base_speed)
