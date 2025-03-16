@@ -76,15 +76,15 @@ class Lane_detection(Node):
 
         # ??喟?????蝞?
         # ??喟?????蝞? - Canny???蝺????蝞?
-        blur_gray = cv2.GaussianBlur(mask_R,(kernel_size, kernel_size), 0)
-        canny_img = cv2.Canny(blur_gray, low_threshold, high_threshold)
+        blur_gray_R = cv2.GaussianBlur(mask_R,(kernel_size, kernel_size), 0)
+        canny_img_R = cv2.Canny(blur_gray_R, low_threshold, high_threshold)
 
         # ??喟?????蝞? - ??????蝞?(閫?蝺咀anny??瑞?????憿?)
         kernel = np.ones((close_size,close_size),np.uint8)
         gradient_R = cv2.morphologyEx(canny_img_R, cv2.MORPH_GRADIENT, kernel)
 
         # ??喟?????蝞? - ???憭怨?????
-        lines = cv2.HoughLinesP(gradient,1,np.pi/180,8,5,2)
+        lines_R = cv2.HoughLinesP(gradient_R,1,np.pi/180,8,5,2)
         # print("error")
         if type(lines_R) == np.ndarray:
             for line in lines_R:
