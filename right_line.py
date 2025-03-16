@@ -48,42 +48,42 @@ class Lane_detection(Node):
 
 
     '''
-        ??喳儐蝺?
+        右循線
     '''
     def right_line(self, msg, kernel_size=25, low_threshold=10, high_threshold=20, close_size=5):
 
-        # 撠?ROS Image頧???????OpenCV??澆??
+       # 將ROS Image轉換成OpenCV格式
         img = self.cv_bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         R_loss = L_loss =1
-        # 撌血�喟��璆菟��X���(������蝵�)
+         # 左右線極限X值(需重置)
         R_min_300 = 640
         R_min_240 = 640
         R_min_180 = 640
         R_min_140 = 640
 
-        # 敶勗�����������
+        # 影像預處理
         # img = copy(img)
         img = cv2.resize(img,(640,360))
         # img = cv2.GaussianBlur(img, (11, 11), 0)
         hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
 
-        # ??喟????桃蔗
+        # 右線遮罩
         lower_R = np.array([R_H_low,R_S_low,R_V_low])
         upper_R = np.array([R_H_high,R_S_high,R_V_high])
         mask_R = cv2.inRange(hsv,lower_R,upper_R)
 
 
 
-        # ??喟?????蝞?
-        # ??喟?????蝞? - Canny???蝺????蝞?
+         # 右線運算
+         # 右線運算 - Canny邊緣運算
         blur_gray_R = cv2.GaussianBlur(mask_R,(kernel_size, kernel_size), 0)
         canny_img_R = cv2.Canny(blur_gray_R, low_threshold, high_threshold)
 
-        # ??喟?????蝞? - ??????蝞?(閫?蝺咀anny??瑞?????憿?)
+        # 右線運算 - 閉運算(解緩Canny斷線問題)
         kernel = np.ones((close_size,close_size),np.uint8)
         gradient_R = cv2.morphologyEx(canny_img_R, cv2.MORPH_GRADIENT, kernel)
 
-        # ??喟?????蝞? - ???憭怨?????
+        # 右線運算 - 霍夫變換
         lines_R = cv2.HoughLinesP(gradient_R,1,np.pi/180,8,5,2)
         # print("error")
         if type(lines_R) == np.ndarray:
@@ -121,7 +121,7 @@ class Lane_detection(Node):
         pts = pts.reshape((-1, 1, 2))
         img = cv2.polylines(img, [pts], False,(255,200,0),3)
 
-        # 閮?蝞?蝯????(頠???剖??撌西?????)
+        # 計算結果(車頭偏左負號)
         R_min = ((R_min_300+R_min_240+R_min_180+R_min_140)/4)-320
         target_line = int(R_min-265)
         print(-target_line)
@@ -131,7 +131,7 @@ class Lane_detection(Node):
         pub_msg=Int64()
         pub_msg.data=-target_line
         self.publisher_.publish(pub_msg)
-        # 頛詨?箏?????&??????
+        # 輸出原圖&成果
         # cv2.imshow("img", img)
         cv2.imshow("mask_R", mask_R)
         cv2.waitKey(1)
