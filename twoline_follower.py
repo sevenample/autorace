@@ -75,12 +75,12 @@ class Lane_detection(Node):
 
         # ��喟�����蝞�
         # ��喟�����蝞� - Canny���蝺����蝞�
-        blur_gray_R = cv2.GaussianBlur(mask_R,(kernel_size, kernel_size), 0)
-        canny_img_R = cv2.Canny(blur_gray_R, low_threshold, high_threshold)
-        # 撌衣�����蝞�
-        # 撌衣�����蝞� - Canny���蝺����蝞�
-        blur_gray_L = cv2.GaussianBlur(mask_L,(kernel_size, kernel_size), 0)
-        canny_img_L = cv2.Canny(blur_gray_L, low_threshold, high_threshold)
+        # blur_gray_R = cv2.GaussianBlur(mask_R,(kernel_size, kernel_size), 0)
+        # canny_img_R = cv2.Canny(blur_gray_R, low_threshold, high_threshold)
+        # # 撌衣�����蝞�
+        # # 撌衣�����蝞� - Canny���蝺����蝞�
+        # blur_gray_L = cv2.GaussianBlur(mask_L,(kernel_size, kernel_size), 0)
+        # canny_img_L = cv2.Canny(blur_gray_L, low_threshold, high_threshold)
 
         # Canny 邊緣檢測 (右線)
         blur_R = cv2.GaussianBlur(mask_R, (kernel_size, kernel_size), 0)
@@ -97,6 +97,7 @@ class Lane_detection(Node):
 
         # 霍夫變換偵測線條 (右線)
         lines_R = cv2.HoughLinesP(gradient_R,1,np.pi/180,8,5,2)
+        lines_L = cv2.HoughLinesP(gradient_L,1,np.pi/180,8,5,2)
         # print("error")
         if type(lines_R) == np.ndarray:
             for line_R in lines_R:
@@ -121,28 +122,29 @@ class Lane_detection(Node):
             print("lost white")
             R_loss = False
             pass
+            
         if type(lines_L) == np.ndarray:
-            for line in lines_L:
-                x1,y1,x2,y2 = line[0]
-                if ((x1+x2)/2)>350 and ((y1+y2)/2)>W_sampling_1:
+            for line_L in lines_L:
+                x1,y1,x2,y2 = line_L[0]
+                if ((x1+x2)/2)<350 and ((y1+y2)/2)>W_sampling_1:
                     # cv2.line(img,(x1,y1),(x2,y2),(255,0,0),1)
-                    if ((x1+x2)/2)<L_min_300:
+                    if ((x1+x2)/2)>L_min_300:
                         L_min_300 = int((x1+x2)/2)
-                elif ((x1+x2)/2)>350 and ((y1+y2)/2)>W_sampling_2:
+                elif ((x1+x2)/2)<350 and ((y1+y2)/2)>W_sampling_2:
                     # cv2.line(img,(x1,y1),(x2,y2),(0,255,0),1)
-                    if ((x1+x2)/2)<L_min_240:
+                    if ((x1+x2)/2)>L_min_240:
                         L_min_240 = int((x1+x2)/2)
-                elif ((x1+x2)/2)>350 and ((y1+y2)/2)>W_sampling_3:
+                elif ((x1+x2)/2)<350 and ((y1+y2)/2)>W_sampling_3:
                     # cv2.line(img,(x1,y1),(x2,y2),(0,0,255),1)
-                    if ((x1+x2)/2)<L_min_180:
+                    if ((x1+x2)/2)>L_min_180:
                         L_min_180 = int((x1+x2)/2)
-                elif ((x1+x2)/2)>350 and ((y1+y2)/2)>W_sampling_4:
+                elif ((x1+x2)/2)<350 and ((y1+y2)/2)>W_sampling_4:
                     # cv2.line(img,(x1,y1),(x2,y2),(0,0,255),1)
-                    if ((x1+x2)/2)<L_min_140:
+                    if ((x1+x2)/2)>L_min_140:
                         L_min_140 = int((x1+x2)/2)
         else:
             print("lose yello error")
-            L_loss = False
+            L_loss = 0 
             pass
 
 
@@ -156,22 +158,22 @@ class Lane_detection(Node):
         img = cv2.polylines(img, [pts], False,(255,200,0),3)
 
         # 閮�蝞�蝯����(頠���剖��撌西�����)
-        L_min = ((L_min_300+L_min_240+L_min_180+L_min_140)/4)-320
+        L_min = ((L_min_300+L_min_240+L_min_180+L_min_140)/4)
         R_min = ((R_min_300+R_min_240+R_min_180+R_min_140)/4)-320
         R_target_line = int(R_min-265)
-        L_target_line = int(L_min-265)
+        L_target_line = int(L_min+55)
         if(L_loss and R_loss):
             target_line = (R_target_line+L_target_line)/2
         elif(L_loss):
             target_line = - R_target_line
         elif(R_loss):
             target_line = -L_target_line
-        print(target_line)
+        print(-target_line)
         
         # target_line=int64(target_line)
         
         pub_msg=Int64()
-        pub_msg.data=target_line
+        pub_msg.data=-target_line
         self.publisher_.publish(pub_msg)
         # 頛詨�箏�����&������
         # cv2.imshow("img", img)
