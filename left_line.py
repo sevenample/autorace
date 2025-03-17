@@ -106,14 +106,14 @@ class Lane_detection(Node):
         img = cv2.polylines(img, [pts], False,(255,200,0),3)
 
         # �?�?�????(�???��??左�?????)
-        L_min = ((L_min_300+L_min_240+L_min_180+L_min_140)/4)-320
-        target_line = int(L_min-265)
-        print(target_line)
+        L_min = ((L_min_300+L_min_240+L_min_180+L_min_140)/4)
+        target_line = int(L_min-55)
+        print(-target_line)
         
         # target_line=int64(target_line)
         
         pub_msg=Int64()
-        pub_msg.data=target_line
+        pub_msg.data=-target_line
         self.publisher_.publish(pub_msg)
         # 輸�?��?????&??????
         cv2.imshow("img", img)

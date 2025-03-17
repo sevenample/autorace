@@ -9,7 +9,7 @@ class CameraPublisher(Node):
         super().__init__('camera_publisher')
         self.publisher_ = self.create_publisher(Image, '/image/image_raw', 10)
         self.timer = self.create_timer(0.001, self.publish_image)
-        self.cap = cv2.VideoCapture('/dev/mycamera') 
+        self.cap = cv2.VideoCapture('/dev/video0') 
         self.bridge = CvBridge()
 
         if not self.cap.isOpened():

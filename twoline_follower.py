@@ -154,20 +154,27 @@ class Lane_detection(Node):
         R_target_line = int(R_min-265)
         L_target_line = int(L_min+55)
         if(L_loss and R_loss):
-            target_line = (R_target_line+L_target_line)/2
-        elif(L_loss):
-            target_line = - R_target_line
-        elif(R_loss):
-            target_line = -L_target_line
-        print(-target_line)
-        
-        # target_line=int64(target_line)
+            target_line = -50+(R_target_line+L_target_line)/2
+            print(-target_line)
+
+        elif(L_loss)==False:
+            target_line =  R_target_line
+            print(-target_line)
+
+        elif(R_loss==False):
+            target_line = L_target_line
+            print(-target_line)
+
+    
+        target_line=int(target_line)
         
         pub_msg=Int64()
         pub_msg.data=-target_line
         self.publisher_.publish(pub_msg)
          # 輸出原圖&成果
         # cv2.imshow("img", img)
+        cv2.imshow("mask_L", mask_L)
+
         cv2.imshow("mask_R", mask_R)
         cv2.waitKey(1)
 
