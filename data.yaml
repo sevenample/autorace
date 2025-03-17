@@ -1,0 +1,17 @@
+train: /home/iclab/yolo_train/src/HSU1/dataset/dataset1/train/images
+val: /home/iclab/yolo_train/src/HSU1/dataset/dataset1/val/images
+test: /home/iclab/yolo_train/src/HSU1/dataset/dataset1/test/images
+
+#nc: 111
+# Classes
+names:
+  0: ts
+  1: error
+  2: left
+  3: park
+  4: tunnel
+  5: work
+  6: right
+  7: row
+  8: stop
+
