@@ -37,10 +37,19 @@ class Lane_detection(Node):
         self.subscription  # prevent unused variable warning
         self.publisher_ = self.create_publisher(Int64, 'topic', 10)
         self.cv_bridge=CvBridge()
+        self.class_subscription = self.create_subscription(
+            Int64,
+            '/detected_class',
+            self.class_callback,
+            10)
+        self.class_subscription  # prevent unused variable warning
+        
+        self.class_id = None
     # def listener_callback(self, msg):
     #     self.get_logger().info('I heard: "%s"' % msg.data)
 
-
+    def class_callback(self, msg):
+        self.class_id=msg.data
 
 
     '''
@@ -50,7 +59,7 @@ class Lane_detection(Node):
 
         # 將ROS Image轉換成OpenCV格式
         img = self.cv_bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-        R_loss = L_loss =True
+        R_loss = L_loss =False
         # 左右線極限X值(需重置)
         L_min_300 = L_min_240 = L_min_180 = L_min_140 = 0
         R_min_300 = 640
@@ -111,7 +120,7 @@ class Lane_detection(Node):
                         R_min_140 = int((x1+x2)/2)
         else:
             print("lost white")
-            R_loss = False
+            R_loss = True
             pass
             
         if type(lines_L) == np.ndarray:
@@ -135,7 +144,7 @@ class Lane_detection(Node):
                         L_min_140 = int((x1+x2)/2)
         else:
             print("lose yello error")
-            L_loss = False
+            L_loss = True
             pass
 
 
@@ -153,20 +162,20 @@ class Lane_detection(Node):
         L_min = ((L_min_300+L_min_240+L_min_180+L_min_140)/4)
         R_target_line = int(R_min-265)
         L_target_line = int(L_min+55)
-        if(L_loss and R_loss):
-            target_line = -50+(R_target_line+L_target_line)/2
-            print(-target_line)
-
-        elif(L_loss)==False:
-            target_line =  R_target_line
-            print(-target_line)
-
-        elif(R_loss==False):
-            target_line = L_target_line
-            print(-target_line)
-
     
-        target_line=int(target_line)
+        if(L_loss or self.class_id == 6):
+            target_line = int( R_target_line)
+            print(-target_line)
+
+        elif(R_loss or self.class_id == 2):
+            target_line = int(L_target_line)
+            print(-target_line)
+        elif not (L_loss and R_loss ):
+            target_line = -50+int((R_target_line+L_target_line)/2)
+            print(-target_line)
+        else:
+            print("error")
+        
         
         pub_msg=Int64()
         pub_msg.data=-target_line
