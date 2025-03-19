@@ -30,7 +30,6 @@ class CameraPublisher(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-
     try:
         camera_publisher = CameraPublisher()
         rclpy.spin(camera_publisher)
