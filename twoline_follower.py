@@ -6,9 +6,11 @@ from rclpy.node import Node
 from std_msgs.msg import Int64
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
+import time  # 新增時間模組
 
-L_H_low, L_S_low, L_V_low = 20, 100, 100
-L_H_high, L_S_high, L_V_high = 40, 255, 255
+L_H_low, L_S_low, L_V_low = 26, 80, 80
+L_H_high, L_S_high, L_V_high = 34, 255, 255
+
 
 R_H_low = 0
 R_S_low = 0
@@ -43,14 +45,15 @@ class Lane_detection(Node):
             self.class_callback,
             10)
         self.class_subscription  # prevent unused variable warning
-        
+        self.num = 5
         self.class_id = None
     # def listener_callback(self, msg):
     #     self.get_logger().info('I heard: "%s"' % msg.data)
 
     def class_callback(self, msg):
+        
         self.class_id=msg.data
-
+        
 
     '''
         左右循線
@@ -66,7 +69,6 @@ class Lane_detection(Node):
         R_min_240 = 640
         R_min_180 = 640
         R_min_140 = 640
-
         # 影像預處理
         # img = copy(img)
         img = cv2.resize(img,(640,360))
@@ -161,30 +163,51 @@ class Lane_detection(Node):
         R_min = ((R_min_300+R_min_240+R_min_180+R_min_140)/4)-320
         L_min = ((L_min_300+L_min_240+L_min_180+L_min_140)/4)
         R_target_line = int(R_min-265)
-        L_target_line = int(L_min+55)
+        L_target_line = int(L_min-55)
     
         if(L_loss or self.class_id == 6):
-            target_line = int( R_target_line)
-            print(-target_line)
+            if (R_target_line >= 55 ):
+                R_target_line += self.num    
+                self.num +=5 
+                if (R_target_line >=80):
+                    R_target_line = 80
+                target_line = int(R_target_line)
+                
+            else :
+                target_line = int( R_target_line)
+                self.num = 5
+            print("R")
+            print(R_target_line)
+            
+        elif(R_loss or self.class_id == 2 ):
+            if (L_target_line <= -55 ):
+                L_target_line -= self.num    
+                self.num +=5
+                target_line = int(L_target_line)
+                if (L_target_line <=90):
+                    L_target_line = -100
 
-        elif(R_loss or self.class_id == 2):
-            target_line = int(L_target_line)
-            print(-target_line)
+            else:
+                target_line = int(L_target_line)
+                self.num = 5
+            print(target_line)
+            print("L")
+
         elif not (L_loss and R_loss ):
-            target_line = -50+int((R_target_line+L_target_line)/2)
-            print(-target_line)
+            target_line = int((R_target_line+L_target_line)/2)
+            print(target_line)
+
         else:
             print("error")
         
-        
+
         pub_msg=Int64()
         pub_msg.data=-target_line
         self.publisher_.publish(pub_msg)
          # 輸出原圖&成果
         # cv2.imshow("img", img)
-        cv2.imshow("mask_L", mask_L)
-
-        cv2.imshow("mask_R", mask_R)
+        # cv2.imshow("mask_L", mask_L)
+        cv2.imshow("mask_R", img)
         cv2.waitKey(1)
 
         # return -target_line, img
