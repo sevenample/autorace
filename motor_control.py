@@ -24,7 +24,7 @@ class MotorControlRight(Node):
         self.packetHandler.write1ByteTxRx(self.portHandler, self.DXL_ID2, self.ADDR_TORQUE_ENABLE, 1)
         
         self.kp = 0.005  # P 控制增益
-        self.base_speed = 50  # 設定基礎速度
+        self.base_speed = 100  # 設定基礎速度
     
     def offset_callback(self, msg):
         error = msg.data  # 來自 `right_line.py` 的偏移量
@@ -37,7 +37,6 @@ class MotorControlRight(Node):
 
         left_speed = int(self.base_speed - correction * self.base_speed)
         right_speed = int(self.base_speed + correction * self.base_speed)
-
         self.packetHandler.write4ByteTxRx(self.portHandler, self.DXL_ID1, self.ADDR_GOAL_VELOCITY, left_speed)
         self.packetHandler.write4ByteTxRx(self.portHandler, self.DXL_ID2, self.ADDR_GOAL_VELOCITY, right_speed)
 
