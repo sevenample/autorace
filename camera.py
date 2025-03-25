@@ -22,7 +22,6 @@ class CameraPublisher(Node):
         if ret:
             try:
                 ros_image_msg = self.bridge.cv2_to_imgmsg(frame, encoding='bgr8')
-                cv2.imshow("USB Camera",frame )
                 self.publisher_.publish(ros_image_msg)
                 self.get_logger().info('Image published to camera_image topic')
             except Exception as e:
