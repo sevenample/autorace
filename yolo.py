@@ -18,7 +18,7 @@ class YOLOv9Node(Node):
             '/image/image_raw',
             self.image_callback,
             10)
-        self.publisher = self.create_publisher(Int32, '/detected_class', 10)  # 新增 Publisher
+        self.publisher = self.create_publisher(Int64, '/detected_class', 10)  # 新增 Publisher
         self.class_count = {}  # 記錄偵測次數
         self.class_last_detected = {}  # 記錄上次偵測的時間
         self.threshold = 5  # 門檻值
@@ -64,20 +64,19 @@ class YOLOv9Node(Node):
             
             # 當某個類別偵測到 5 次時發送訊息
             if self.class_count[class_id] == self.threshold:
+                if class_id == 0:
+                    time.sleep(5)
                 msg = Int64()
                 msg.data = class_id
                 self.publisher.publish(msg)
                 self.get_logger().info(f"Published class ID: {class_id}")
-                time.sleep(5)
-                msg.data = 7
                 self.publisher.publish(msg)
-                self.class_count[class_id] = 0
+                self.class_count[class_id]=0
 
         
         # 顯示結果影像
         cv2.imshow("Detection Results", image)
         cv2.waitKey(1)
-
 def main(args=None):
     rclpy.init(args=args)
     node = YOLOv9Node()
