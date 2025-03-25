@@ -107,7 +107,7 @@ class Lane_detection(Node):
 
         # �?�?�????(�???��??左�?????)
         L_min = ((L_min_300+L_min_240+L_min_180+L_min_140)/4)
-        target_line = int(L_min-55)
+        target_line = int(L_min-70)
         print(-target_line)
         
         # target_line=int64(target_line)
