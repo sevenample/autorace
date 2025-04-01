@@ -3,11 +3,14 @@ import cv2
 import rclpy
 from rclpy.node import Node
 
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
+
 from std_msgs.msg import Int64
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image ,LaserScan
 from cv_bridge import CvBridge
 import time  # 新增時間模組
-
+import math
+import sys
 L_H_low, L_S_low, L_V_low = 26, 80, 80
 L_H_high, L_S_high, L_V_high = 34, 255, 255
 
@@ -25,6 +28,7 @@ W_sampling_2 = 270
 W_sampling_3 = 235
 W_sampling_4 = 200
 
+num1 = 0
 
 
 class Lane_detection(Node):
@@ -45,21 +49,46 @@ class Lane_detection(Node):
             self.class_callback,
             10)
         self.class_subscription  # prevent unused variable warning
+        qos_profile = QoSProfile(
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=10,
+            reliability=QoSReliabilityPolicy.SYSTEM_DEFAULT  # 設定為系統預設值
+        )
+        self.liadr_subscription = self.create_subscription(LaserScan, '/scan', self.scan_callback,qos_profile)
+        self.liadr_subscription 
         self.num = 5
         self.class_id = None
+        self.lidar90 = None
+        self.lidar180 = None
+        self.lidar270 = None
+        
+        
+
+
     # def listener_callback(self, msg):
     #     self.get_logger().info('I heard: "%s"' % msg.data)
 
+    #yolo callback
     def class_callback(self, msg):
         
         self.class_id=msg.data
-        
 
+    #雷射callback
+    def scan_callback(self, msg):
+        angle_min = msg.angle_min
+        angle_increment = msg.angle_increment
+        index_minus0 = int(math.radians(180) /angle_increment) # 弧度（角度）/ 角度增量
+        index_minus1 = int(math.radians(90) /angle_increment) # 弧度（角度）/ 角度增量
+        index_minus2 = int(math.radians(-90) /angle_increment)
+        
+        self.lidar90 = msg.ranges[index_minus1]
+        self.lidar180 = msg.ranges[index_minus0]
+        self.lidar270 = msg.ranges[index_minus2]
     '''
         左右循線
     '''
     def two_line(self, msg, kernel_size=25, low_threshold=10, high_threshold=20, close_size=5):
-
+        global num1 
         # 將ROS Image轉換成OpenCV格式
         img = self.cv_bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         R_loss = L_loss =False
@@ -121,7 +150,6 @@ class Lane_detection(Node):
                     if ((x1+x2)/2)<R_min_140:
                         R_min_140 = int((x1+x2)/2)
         else:
-            print("lost white")
             R_loss = True
             pass
             
@@ -145,7 +173,6 @@ class Lane_detection(Node):
                     if ((x1+x2)/2)>L_min_140:
                         L_min_140 = int((x1+x2)/2)
         else:
-            print("lose yello error")
             L_loss = True
             pass
 
@@ -158,14 +185,43 @@ class Lane_detection(Node):
         pts = np.array([[R_min_300,(360+W_sampling_1)/2], [R_min_240,(W_sampling_1+W_sampling_2)/2], [R_min_180,(W_sampling_2+W_sampling_3)/2],[R_min_140,(W_sampling_3+W_sampling_4)/2]], np.int32)
         pts = pts.reshape((-1, 1, 2))
         img = cv2.polylines(img, [pts], False,(255,200,0),3)
-
          # 計算結果
         R_min = ((R_min_300+R_min_240+R_min_180+R_min_140)/4)-320
         L_min = ((L_min_300+L_min_240+L_min_180+L_min_140)/4)
         R_target_line = int(R_min-265)
         L_target_line = int(L_min-55)
+        target_line = None
+        
+        if (self.class_id == 5):
+            
+            print(self.lidar180 )
+            if (self.lidar180<0.25 and num1 == 0 ):
+                print("have something")
+                num1 = 1
+            if (self.lidar90>0.15 and num1 == 1):
+                target_line = -200
+                print("tunning")
+              
+            else:
+                if (R_target_line >= 55 ):
+                    if (num1 == 1):
+                        num1 = 2
+                    print("no white line")
+                    R_target_line += self.num    
+                    self.num +=5 
+                    if (R_target_line >=80):
+                        R_target_line = 80
+                    target_line = int(R_target_line) 
+                else :
+                    if (num1 == 1):
+                        num1 = 2
+                    print("following white line"+str(target_line))
+                    target_line = int( R_target_line)
+                    self.num = 5
+            
+            
     
-        if(L_loss or self.class_id == 6):
+        elif(L_loss or self.class_id == 6):
             if (R_target_line >= 55 ):
                 R_target_line += self.num    
                 self.num +=5 
@@ -174,6 +230,7 @@ class Lane_detection(Node):
                 target_line = int(R_target_line)
                 
             else :
+                
                 target_line = int( R_target_line)
                 self.num = 5
             print("R")
@@ -200,13 +257,13 @@ class Lane_detection(Node):
         else:
             print("error")
         
-
-        pub_msg=Int64()
-        pub_msg.data=-target_line
-        self.publisher_.publish(pub_msg)
+        if (target_line):
+            pub_msg=Int64()
+            pub_msg.data=-target_line
+            self.publisher_.publish(pub_msg)
          # 輸出原圖&成果
         # cv2.imshow("img", img)
-        # cv2.imshow("mask_L", mask_L)
+        cv2.imshow("mask_L", mask_R)
         cv2.imshow("mask_R", img)
         cv2.waitKey(1)
 
@@ -214,6 +271,8 @@ class Lane_detection(Node):
 
 
 def main(args=None):
+    
+    
     rclpy.init(args=args)
 
     lane_detection = Lane_detection()
