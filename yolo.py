@@ -19,11 +19,14 @@ class YOLOv9Node(Node):
             self.image_callback,
             10)
         self.publisher = self.create_publisher(Int64, '/detected_class', 10)  # 新增 Publisher
+        self.stop_publisher = self.create_publisher(Int64, '/stop_signal', 10)  # 停止信號發布
         self.class_count = {}  # 記錄偵測次數
         self.class_last_detected = {}  # 記錄上次偵測的時間
         self.threshold = 5  # 門檻值
         self.wait_time = 10  # 設定等待時間 (毫秒)  # 設定等待時間 (秒)
         self.get_logger().info("YOLOv9 Node Initialized and subscribed to /image/image_raw")
+        self.width = None
+        self.height = None
     
     def image_callback(self, msg):
         # 轉換 ROS2 影像訊息到 OpenCV 格式
@@ -39,7 +42,16 @@ class YOLOv9Node(Node):
             bbox = result.xyxy[0].tolist()
             confidence = result.conf[0].item()
             class_id = int(result.cls[0].item())
-            
+            self.width = x_max - x_min
+            self.height = y_max - y_min
+            if (class_id ==7 and self.width>self.height):
+                    stop_msg = Int64()
+                    stop_msg.data = 0
+                    self.stop_publisher.publish(stop_msg)
+            else:
+                stop_msg = Int64()
+                stop_msg.data = 1
+                self.stop_publisher.publish(stop_msg)
             x_min, y_min, x_max, y_max = map(int, bbox)
             cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
             label = f"Class {class_id}: {confidence:.2f}"
@@ -64,14 +76,11 @@ class YOLOv9Node(Node):
             
             # 當某個類別偵測到 5 次時發送訊息
             if self.class_count[class_id] == self.threshold:
-                if class_id == 0:
-                    time.sleep(5)
+                
                 msg = Int64()
                 msg.data = class_id
                 self.publisher.publish(msg)
                 self.get_logger().info(f"Published class ID: {class_id}")
-                self.publisher.publish(msg)
-                self.class_count[class_id]=0
 
         
         # 顯示結果影像
