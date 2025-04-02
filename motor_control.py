@@ -9,7 +9,7 @@ class MotorControlRight(Node):
         super().__init__('motor_control_right')
         self.subscription = self.create_subscription(Int64, 'topic', self.offset_callback, 10)
         self.publisher = self.create_publisher(Twist, 'cmd_vel', 10)
-        
+        self.stop_subscription = self.create_subscription(Int64, '/stop_signal', self.stop_callback, 10)
         self.portHandler = PortHandler('/dev/ttyACM0')
         self.packetHandler = PacketHandler(2.0)
         self.portHandler.openPort()
@@ -25,7 +25,11 @@ class MotorControlRight(Node):
         
         self.kp = 0.005  # P 控制增益
         self.base_speed = 100  # 設定基礎速度
-    
+        self.stop_signal=1
+        
+    def stop_callback(self, msg):
+        self.stop_signal = msg.data
+
     def offset_callback(self, msg):
         error = msg.data  # 來自 `right_line.py` 的偏移量
         correction = self.kp * error  # P 控制計算修正量
@@ -37,8 +41,8 @@ class MotorControlRight(Node):
 
         left_speed = int(self.base_speed - correction * self.base_speed)
         right_speed = int(self.base_speed + correction * self.base_speed)
-        self.packetHandler.write4ByteTxRx(self.portHandler, self.DXL_ID1, self.ADDR_GOAL_VELOCITY, left_speed)
-        self.packetHandler.write4ByteTxRx(self.portHandler, self.DXL_ID2, self.ADDR_GOAL_VELOCITY, right_speed)
+        self.packetHandler.write4ByteTxRx(self.portHandler, self.DXL_ID1, self.ADDR_GOAL_VELOCITY, left_speed*self.stop_signal)
+        self.packetHandler.write4ByteTxRx(self.portHandler, self.DXL_ID2, self.ADDR_GOAL_VELOCITY, right_speed*self.stop_signal)
 
 def main(args=None):
     rclpy.init(args=args)
