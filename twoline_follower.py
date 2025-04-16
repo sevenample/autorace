@@ -61,6 +61,8 @@ class Lane_detection(Node):
         self.lidar90 = None
         self.lidar180 = None
         self.lidar270 = None
+        self.lidar0 = None
+
         
         
 
@@ -80,7 +82,9 @@ class Lane_detection(Node):
         index_minus0 = int(math.radians(180) /angle_increment) # 弧度（角度）/ 角度增量
         index_minus1 = int(math.radians(90) /angle_increment) # 弧度（角度）/ 角度增量
         index_minus2 = int(math.radians(-90) /angle_increment)
-        
+        # index_minus3 = int(math.radians(0) /angle_increment)
+
+        # self.lidar0 = msg.ranges[index_minus3]
         self.lidar90 = msg.ranges[index_minus1]
         self.lidar180 = msg.ranges[index_minus0]
         self.lidar270 = msg.ranges[index_minus2]
@@ -192,32 +196,41 @@ class Lane_detection(Node):
         L_target_line = int(L_min-55)
         target_line = None
         
+        # if (self.class_id == 3):
+        #     target_line = L_target_line
+        #     if (self.lidar90<0.25):
+        #         num1 = 1
+        #         turn = 1
+        #     elif (self.lidar270<0.25):
+        #         num1 = 1
+        #         turn = -1
+        #     if(self.lidar0>0.15 and num1 == 1):
+        #         target_line = -200 *turn
+        #         num=2
+        #     if(num==2):
+        #         rclpy.shutdown()
+
+        
+
+
         if (self.class_id == 5):
+            print("90:"+str(self.lidar90)[:4]+"180: "+str(self.lidar90)[:4])  # 輸出：'1234'
             
-            print(self.lidar180 )
-            if (self.lidar180<0.25 and num1 == 0 ):
-                print("have something")
+            if (self.lidar180 <  0.35 or num1 ==1):
+                target_line =  -200
                 num1 = 1
-            if (self.lidar90>0.15 and num1 == 1):
-                target_line = -200
-                print("tunning")
-              
-            else:
-                if (R_target_line >= 55 ):
-                    if (num1 == 1):
-                        num1 = 2
-                    print("no white line")
-                    R_target_line += self.num    
-                    self.num +=5 
-                    if (R_target_line >=80):
-                        R_target_line = 80
-                    target_line = int(R_target_line) 
-                else :
-                    if (num1 == 1):
-                        num1 = 2
-                    print("following white line"+str(target_line))
-                    target_line = int( R_target_line)
-                    self.num = 5
+                print("turn")
+                if (self.lidar180 > 0.6):
+                    num1 = 2
+                    print("num1 = 1")
+            elif(self.lidar90>0.15 and num1 ==2):
+                target_line = 1
+                if (self.lidar90<0.17):
+                    num1 =0                
+            elif(num1 == 0) :
+                target_line = int(R_target_line) +20
+                print("ladir")
+        
             
             
     
@@ -233,8 +246,7 @@ class Lane_detection(Node):
                 
                 target_line = int( R_target_line)
                 self.num = 5
-            print("R")
-            print(R_target_line)
+            print("R mode")
             
         elif(R_loss or self.class_id == 2 ):
             if (L_target_line <= -55 ):
@@ -247,12 +259,10 @@ class Lane_detection(Node):
             else:
                 target_line = int(L_target_line)
                 self.num = 5
-            print(target_line)
-            print("L")
+            print("L mode ")
 
         elif not (L_loss and R_loss ):
             target_line = int((R_target_line+L_target_line)/2)
-            print(target_line)
 
         else:
             print("error")
@@ -262,9 +272,8 @@ class Lane_detection(Node):
             pub_msg.data=-target_line
             self.publisher_.publish(pub_msg)
          # 輸出原圖&成果
-        # cv2.imshow("img", img)
+        cv2.imshow("img", img)
         cv2.imshow("mask_L", mask_R)
-        cv2.imshow("mask_R", img)
         cv2.waitKey(1)
 
         # return -target_line, img
