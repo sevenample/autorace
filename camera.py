@@ -10,6 +10,10 @@ class CameraPublisher(Node):
         self.publisher_ = self.create_publisher(Image, '/image/image_raw', 10)
         self.timer = self.create_timer(0.001, self.publish_image)
         self.cap = cv2.VideoCapture('/dev/video0') 
+        # 嘗試關閉自動曝光（不同裝置可能有不同數值）
+        self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)  # 有些相機使用 0.75 表示開啟，0.25 表示手動
+        self.cap.set(cv2.CAP_PROP_EXPOSURE, 210)  # 數值可依需求調整（單位與範圍視相機而定）
+
         self.bridge = CvBridge()
 
         if not self.cap.isOpened():
