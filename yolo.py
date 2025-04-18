@@ -53,9 +53,9 @@ class YOLOv9Node(Node):
                 stop_msg = Int64()
                 stop_msg.data = 1
                 self.stop_publisher.publish(stop_msg)
-            # cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
+            cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
             label = f"Class {class_id}: {confidence:.2f}"
-            # cv2.putText(image, label, (x_min, y_min - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            cv2.putText(image, label, (x_min, y_min - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
             
             detected_classes.append(class_id)
         
