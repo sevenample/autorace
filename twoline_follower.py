@@ -29,7 +29,7 @@ W_sampling_3 = 235
 W_sampling_4 = 200
 
 num1 = 0
-
+num2 = 0
 
 class Lane_detection(Node):
 
@@ -196,19 +196,43 @@ class Lane_detection(Node):
         L_target_line = int(L_min-55)
         target_line = None
         
-        # if (self.class_id == 3):
-        #     target_line = L_target_line
-        #     if (self.lidar90<0.25):
-        #         num1 = 1
-        #         turn = 1
-        #     elif (self.lidar270<0.25):
-        #         num1 = 1
-        #         turn = -1
-        #     if(self.lidar0>0.15 and num1 == 1):
-        #         target_line = -200 *turn
-        #         num=2
-        #     if(num==2):
-        #         rclpy.shutdown()
+        if (self.class_id == 3):
+            if(self.lidar90 < 0.1 or self.lidar270 < 0.1 ):
+                if(self.lidar90 < 0.1):
+                    direction = 1
+                elif (self.lidar270 < 0.1):
+                    direction = -1
+            elif not(direction):
+                target_line = L_target_line
+                print("parking")
+            elif (self.lidar0 >0.15 and direction and num2 == 0 ):
+                target_line = -200*direction
+                print("turn")
+                if (self.lidar0 <0.16):
+                    num2 = 1
+                    print("turn end")
+                
+            elif (self.lidar0 < 0.30 and num2 == 1):
+                target_line = 1 
+                num2 == 2
+            elif (num2 ==2 ):
+                if (self.lidar180 >0.30):
+                    target_line = -200*direction
+                else :
+                    num2 = 3
+            elif(num2 == 3):
+                target_line =1
+                if (self.lidar180 <0.10):
+                    num2 = 4
+            elif(num2 == 4):
+                target_line = 200*direction
+                if(self.lidar90 <0.15 and direction == -1):
+                    direction = 0
+                elif(self.lidar270 <0.15 and direction == 1):
+                    direction = 0
+
+
+
 
         
 
@@ -263,7 +287,7 @@ class Lane_detection(Node):
 
         elif not (L_loss and R_loss ):
             target_line = int((R_target_line+L_target_line)/2)
-
+            print("normal mode ")
         else:
             print("error")
         
