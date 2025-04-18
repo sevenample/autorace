@@ -82,7 +82,6 @@ class Lane_detection(Node):
 
     #雷射callback
     def scan_callback(self, msg):
-        angle_min = msg.angle_min
         angle_increment = msg.angle_increment
         index_minus0 = int(math.radians(180) /angle_increment) # 弧度（角度）/ 角度增量
         index_minus1 = int(math.radians(90) /angle_increment) # 弧度（角度）/ 角度增量
@@ -100,13 +99,10 @@ class Lane_detection(Node):
         global num1 ,direction
         # 將ROS Image轉換成OpenCV格式
         img = self.cv_bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-        R_loss = L_loss =False
+        R_loss = L_loss = False
         # 左右線極限X值(需重置)
         L_min_300 = L_min_240 = L_min_180 = L_min_140 = 0
-        R_min_300 = 640
-        R_min_240 = 640
-        R_min_180 = 640
-        R_min_140 = 640
+        R_min_300 = R_min_240 = R_min_180 = R_min_140 = 640
         # 影像預處理
         # img = copy(img)
         img = cv2.resize(img,(640,360))
@@ -200,7 +196,7 @@ class Lane_detection(Node):
         R_target_line = int(R_min-265)
         L_target_line = int(L_min-55)
         target_line = None
-        
+# 停車模式
         if (self.class_id == 3):
             if(self.lidar90 < 0.1 or self.lidar270 < 0.1 ):
                 if(self.lidar90 < 0.1):
@@ -216,10 +212,10 @@ class Lane_detection(Node):
                 if (self.lidar0 <0.16):
                     num2 = 1
                     self.switch_mode("turn end")
-                
             elif (self.lidar0 < 0.30 and num2 == 1):
                 target_line = 1 
-                num2 == 2
+                if(self.lidar0 >0.3):
+                    num2 == 2
             elif (num2 ==2 ):
                 if (self.lidar180 >0.30):
                     target_line = -200*direction
@@ -236,13 +232,8 @@ class Lane_detection(Node):
                 elif(self.lidar270 <0.15 and direction == 1):
                     direction = 0
 
-
-
-
-        
-
-
-        if (self.class_id == 5):
+# 避障模式
+        elif (self.class_id == 5):
             
             if (self.lidar180 <  0.35 or num1 ==1):
                 target_line =  -200
@@ -261,7 +252,7 @@ class Lane_detection(Node):
         
             
             
-    
+# 右循線模式
         elif(L_loss or self.class_id == 6):
             if (R_target_line >= 55 ):
                 R_target_line += self.num    
@@ -269,13 +260,11 @@ class Lane_detection(Node):
                 if (R_target_line >=80):
                     R_target_line = 80
                 target_line = int(R_target_line)
-                
             else :
-                
                 target_line = int( R_target_line)
                 self.num = 5
             self.switch_mode("R mode")
-            
+# 左循線模式
         elif(R_loss or self.class_id == 2 ):
             if (L_target_line <= -55 ):
                 L_target_line -= self.num    
@@ -283,25 +272,24 @@ class Lane_detection(Node):
                 target_line = int(L_target_line)
                 if (L_target_line <=90):
                     L_target_line = -100
-
             else:
                 target_line = int(L_target_line)
                 self.num = 5
             self.switch_mode("L mode ")
-
+# 正常循線模式
         elif not (L_loss and R_loss and self.class_id == 0):
             target_line = int((R_target_line+L_target_line)/2)
             self.switch_mode("normal mode ")
         else:
             self.switch_mode("error")
-        
+# 發布訊息
         if (target_line):
             pub_msg=Int64()
             pub_msg.data=-target_line
             self.publisher_.publish(pub_msg)
          # 輸出原圖&成果
         cv2.imshow("img", img)
-        cv2.imshow("mask_L", mask_R)
+        # cv2.imshow("mask_L", mask_R)
         cv2.waitKey(1)
 
         # return -target_line, img
