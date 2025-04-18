@@ -81,6 +81,8 @@ class YOLOv9Node(Node):
                 msg.data = class_id
                 self.publisher.publish(msg)
                 self.get_logger().info(f"Published class ID: {class_id}")
+                if (class_id==3):
+                    time.sleep(10)
 
         
         # 顯示結果影像
