@@ -33,8 +33,7 @@ class YOLOv9Node(Node):
         image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
         
         # 進行物件偵測
-        results = self.model(image)
-        
+        results = self.model(image, verbose=False)
         detected_classes = []  # 存放本幀影像中偵測到的類別
         
         # 遍歷偵測結果並繪製邊界框
@@ -42,6 +41,8 @@ class YOLOv9Node(Node):
             bbox = result.xyxy[0].tolist()
             confidence = result.conf[0].item()
             class_id = int(result.cls[0].item())
+            x_min, y_min, x_max, y_max = map(int, bbox)
+
             self.width = x_max - x_min
             self.height = y_max - y_min
             if (class_id ==7 and self.width>self.height):
@@ -52,10 +53,9 @@ class YOLOv9Node(Node):
                 stop_msg = Int64()
                 stop_msg.data = 1
                 self.stop_publisher.publish(stop_msg)
-            x_min, y_min, x_max, y_max = map(int, bbox)
-            cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
+            # cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
             label = f"Class {class_id}: {confidence:.2f}"
-            cv2.putText(image, label, (x_min, y_min - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            # cv2.putText(image, label, (x_min, y_min - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
             
             detected_classes.append(class_id)
         
