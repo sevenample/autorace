@@ -30,7 +30,7 @@ W_sampling_4 = 200
 
 num1 = 0
 num2 = 0
-
+direction=0
 class Lane_detection(Node):
 
     def __init__(self):
@@ -62,11 +62,16 @@ class Lane_detection(Node):
         self.lidar180 = None
         self.lidar270 = None
         self.lidar0 = None
+        self.previous_mode = None
 
+    # 類別外的全域變數方式（或你可以放成 self.previous_mode）
+    
+    def switch_mode(self,current_mode):
+        if current_mode != self.previous_mode:
+            print(f"mode:    {current_mode}")
+            self.previous_mode = current_mode
         
         
-
-
     # def listener_callback(self, msg):
     #     self.get_logger().info('I heard: "%s"' % msg.data)
 
@@ -92,7 +97,7 @@ class Lane_detection(Node):
         左右循線
     '''
     def two_line(self, msg, kernel_size=25, low_threshold=10, high_threshold=20, close_size=5):
-        global num1 
+        global num1 ,direction
         # 將ROS Image轉換成OpenCV格式
         img = self.cv_bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         R_loss = L_loss =False
@@ -204,13 +209,13 @@ class Lane_detection(Node):
                     direction = -1
             elif not(direction):
                 target_line = L_target_line
-                print("parking")
+                self.switch_mode("parking mode")
             elif (self.lidar0 >0.15 and direction and num2 == 0 ):
                 target_line = -200*direction
-                print("turn")
+                self.switch_mode("turn")
                 if (self.lidar0 <0.16):
                     num2 = 1
-                    print("turn end")
+                    self.switch_mode("turn end")
                 
             elif (self.lidar0 < 0.30 and num2 == 1):
                 target_line = 1 
@@ -238,22 +243,21 @@ class Lane_detection(Node):
 
 
         if (self.class_id == 5):
-            print("90:"+str(self.lidar90)[:4]+"180: "+str(self.lidar90)[:4])  # 輸出：'1234'
             
             if (self.lidar180 <  0.35 or num1 ==1):
                 target_line =  -200
                 num1 = 1
-                print("turn")
+                self.switch_mode("turn mode")
                 if (self.lidar180 > 0.6):
                     num1 = 2
-                    print("num1 = 1")
+                    self.switch_mode("straight mode ")
             elif(self.lidar90>0.15 and num1 ==2):
                 target_line = 1
                 if (self.lidar90<0.17):
                     num1 =0                
             elif(num1 == 0) :
                 target_line = int(R_target_line) +20
-                print("ladir")
+                self.switch_mode("ladir mode")
         
             
             
@@ -270,7 +274,7 @@ class Lane_detection(Node):
                 
                 target_line = int( R_target_line)
                 self.num = 5
-            print("R mode")
+            self.switch_mode("R mode")
             
         elif(R_loss or self.class_id == 2 ):
             if (L_target_line <= -55 ):
@@ -283,13 +287,13 @@ class Lane_detection(Node):
             else:
                 target_line = int(L_target_line)
                 self.num = 5
-            print("L mode ")
+            self.switch_mode("L mode ")
 
-        elif not (L_loss and R_loss ):
+        elif not (L_loss and R_loss and self.class_id == 0):
             target_line = int((R_target_line+L_target_line)/2)
-            print("normal mode ")
+            self.switch_mode("normal mode ")
         else:
-            print("error")
+            self.switch_mode("error")
         
         if (target_line):
             pub_msg=Int64()
