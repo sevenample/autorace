@@ -11,17 +11,16 @@ from cv_bridge import CvBridge
 import time  # 新增時間模組
 import math
 import sys
-L_H_low, L_S_low, L_V_low = 26, 80, 80
-L_H_high, L_S_high, L_V_high = 34, 255, 255
 
-
-R_H_low = 0
-R_S_low = 0
-R_V_low = 236
-R_H_high = 360
-R_S_high = 23
-R_V_high = 255
-
+# 綠色HSV
+lower_G = np.array([45, 150, 150])
+upper_G = np.array([85, 255, 255])
+# 右線HSV
+lower_R = np.array([0,0,236])
+upper_R = np.array([360,23,255])
+# 左線HSV
+lower_L = np.array([26,80,80])
+upper_L = np.array([34,255,255])
 # ��⊥見���頝�
 W_sampling_1 = 305
 W_sampling_2 = 270
@@ -55,22 +54,40 @@ class Lane_detection(Node):
             depth=10,
             reliability=QoSReliabilityPolicy.SYSTEM_DEFAULT  # 設定為系統預設值
         )
-        self.stop_publisher = self.create_publisher(Int64, '/stop_signal', 1)  # 停止信號發布
         self.liadr_subscription = self.create_subscription(LaserScan, '/scan', self.scan_callback,qos_profile)
         self.liadr_subscription 
-        self.num = 5
+        self.num = 10
         self.class_id = None
-        self.lidar90 = None
         self.lidar180 = None
-        self.lidar270 = None
-        self.lidar0 = None
+        self.kp = 0.0035  # P 控制增益
+        self.base_speed = 150  # 設定基礎速度
         self.previous_mode = None
-        self.lidar165 = None
-        self.lidar_neg165 = None
         self.entered_class3 = None  
         self.start_time = time.time()  # 啟動計時
 
+    def draw_lane_lines(self,img, R_min_300, R_min_240, R_min_180, R_min_140,
+                          L_min_300, L_min_240, L_min_180, L_min_140):
+        # 畫右邊線
+        pts_R = np.array([
+            [R_min_300, (360 + W_sampling_1) / 2],
+            [R_min_240, (W_sampling_1 + W_sampling_2) / 2],
+            [R_min_180, (W_sampling_2 + W_sampling_3) / 2],
+            [R_min_140, (W_sampling_3 + W_sampling_4) / 2]
+        ], np.int32)
+        pts_R = pts_R.reshape((-1, 1, 2))
+        img = cv2.polylines(img, [pts_R], False, (255, 200, 0), 3)
 
+        # 畫左邊線
+        pts_L = np.array([
+            [L_min_300, (360 + W_sampling_1) / 2],
+            [L_min_240, (W_sampling_1 + W_sampling_2) / 2],
+            [L_min_180, (W_sampling_2 + W_sampling_3) / 2],
+            [L_min_140, (W_sampling_3 + W_sampling_4) / 2]
+        ], np.int32)
+        pts_L = pts_L.reshape((-1, 1, 2))
+        img = cv2.polylines(img, [pts_L], False, (0, 200, 255), 3)
+
+        return img
 
     # 類別外的全域變數方式（或你可以放成 self.previous_mode）
     
@@ -78,15 +95,27 @@ class Lane_detection(Node):
         if current_mode != self.previous_mode:
             print(f"mode:    {current_mode}")
             self.previous_mode = current_mode
-        
-        
-    # def listener_callback(self, msg):
-    #     self.get_logger().info('I heard: "%s"' % msg.data)
 
+    
     #yolo callback
     def class_callback(self, msg):
-        
         self.class_id=msg.data
+
+        
+    def moter_callback(self,error,stop):
+        if (error):
+            correction = self.kp * -error  # P 控制計算修正量
+            left_speed = int((self.base_speed - correction * self.base_speed)*stop)
+            right_speed = int((self.base_speed + correction * self.base_speed)*stop)
+            self.publish_speed(left_speed, right_speed)
+            
+
+    def publish_speed(self, left_speed, right_speed):
+        pub_msg=Int64()
+        pub_msg.left=left_speed
+        pub_msg.right=right_speed
+        self.publisher_.publish(pub_msg)
+            
 
     #雷射callback
     def scan_callback(self, msg):
@@ -108,27 +137,27 @@ class Lane_detection(Node):
         # 將ROS Image轉換成OpenCV格式
         img = self.cv_bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         R_loss = L_loss =False
+
         # 左右線極限X值(需重置)
         L_min_300 = L_min_240 = L_min_180 = L_min_140 = 0
         R_min_300 = R_min_240=R_min_180 =R_min_140 = 640
-        
-        G_H_low, G_S_low, G_V_low = 45,150,150
-        G_H_high, G_S_high, G_V_high = 85,255,255
-        # 影像預處理
-        # img = copy(img)
-        img = cv2.resize(img,(640,360))
 
-        # img = cv2.GaussianBlur(img, (11, 11), 0)
+        # 影像預處理
+        img = cv2.resize(img,(640,360))
         hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
         # 只保留影像上半部
-        # 右線遮罩
-                # 綠色遮罩區域（在霍夫運算之前加入）
 
-        lower_G = np.array([G_H_low, G_S_low, G_V_low])
-        upper_G = np.array([G_H_high, G_S_high, G_V_high])
+        # 綠色遮罩區域
         mask_G = cv2.inRange(hsv, lower_G, upper_G)
+
+        # 右線遮罩
+        mask_R = cv2.inRange(hsv,lower_R,upper_R)
+
+        # 左線遮罩
+        mask_L= cv2.inRange(hsv,lower_L,upper_L)
+        kernel = np.ones((close_size, close_size), np.uint8)
+
         green_pixel_count = cv2.countNonZero(mask_G)
-        cv2.imshow("mask_L", mask_G)
 
         if green_pixel_count < 10 and num2==0:  # 若綠色像素過少（可視情況調整閾值）
 
@@ -138,13 +167,6 @@ class Lane_detection(Node):
         else :
             num2 +=1
 
-        lower_R = np.array([R_H_low,R_S_low,R_V_low])
-        upper_R = np.array([R_H_high,R_S_high,R_V_high])
-        mask_R = cv2.inRange(hsv,lower_R,upper_R)
-        # 左線遮罩
-        lower_L = np.array([L_H_low,L_S_low,L_V_low])
-        upper_L = np.array([L_H_high,L_S_high,L_V_high])
-        mask_L= cv2.inRange(hsv,lower_L,upper_L)
 
         # Canny 邊緣檢測 (右線)
         blur_R = cv2.GaussianBlur(mask_R, (kernel_size, kernel_size), 0)
@@ -155,7 +177,6 @@ class Lane_detection(Node):
         canny_L = cv2.Canny(blur_L, low_threshold, high_threshold)
 
         # 閉運算 (修復邊緣斷裂)
-        kernel = np.ones((close_size, close_size), np.uint8)
         gradient_R = cv2.morphologyEx(canny_R, cv2.MORPH_GRADIENT, kernel)
         gradient_L = cv2.morphologyEx(canny_L, cv2.MORPH_GRADIENT, kernel)
 
@@ -208,92 +229,18 @@ class Lane_detection(Node):
         else:
             L_loss = True
             pass
-
-
-        # cv2.rectangle(img, (L_min_300, W_sampling_1), (R_min_300, 360), (255,0,0), 0) 
-        # cv2.rectangle(img, (L_min_240, W_sampling_2), (R_min_240, W_sampling_1), (0,255,0), 0) 
-        # cv2.rectangle(img, (L_min_180, W_sampling_3), (R_min_180, W_sampling_2), (0,0,255), 0)
-        # cv2.rectangle(img, (L_min_140, W_sampling_4), (R_min_140, W_sampling_3), (0,255,255), 0) 
-
-        pts = np.array([[R_min_300,(360+W_sampling_1)/2], [R_min_240,(W_sampling_1+W_sampling_2)/2], [R_min_180,(W_sampling_2+W_sampling_3)/2],[R_min_140,(W_sampling_3+W_sampling_4)/2]], np.int32)
-        pts = pts.reshape((-1, 1, 2))
-        img = cv2.polylines(img, [pts], False,(255,200,0),3)
+       
          # 計算結果
         R_min = ((R_min_300+R_min_240+R_min_180+R_min_140)/4)-320
         L_min = ((L_min_300+L_min_240+L_min_180+L_min_140)/4)
         R_target_line = int(R_min-265)
         L_target_line = int(L_min-70)
-        target_line = None
 
         # 計時器
         if self.class_id == 3 and not self.entered_class3:
             self.start_time = time.time()
             self.entered_class3 = True
             self.switch_mode("Start class 3 timer")
-
-        # 停車模式
-        # if self.class_id == 3:
-        #     elapsed_time = time.time() - self.start_time if self.start_time else 0            # 前10秒，正常循黃線進彎
-            
-        #     if elapsed_time < 10:
-        #         if (L_target_line <= -55 ):
-        #             L_target_line -= self.num    
-        #             self.num +=10
-        #             target_line = int(L_target_line)
-        #             if (L_target_line <=90):
-        #                 L_target_line = -120
-        #         target_line = L_target_line
-        #         self.switch_mode("yellow line follow")
-            
-        #     else:
-        #         if self.lidar90 < 0.3 and num3 == 0:
-        #             direction = 1  # 左邊有障礙，向右偏
-        #             num3 =1
-        #         elif self.lidar270 < 0.3 and num3 == 0:
-        #             direction = -1  # 右邊有障礙，向左偏
-        #             num3 =1
-        #         elif(self.lidar0 > 0.25 and num3 ==1):
-        #             target_line = -200 * direction
-        #             self.switch_mode("turn")
-        #             if(self.lidar0 < 0.30):
-        #                 num3 = 2
-        #                 self.switch_mode("turn done")
-        #         elif num3 ==2 and self.lidar0 <0.30:
-        #             target_line = -4
-        #             self.switch_mode("path")
-        #             if (self.lidar0 > 0.25):
-        #                 self.switch_mode("clear")
-        #                 num3 = 3
-        #         elif(self.lidar180 > 0.45 and num3 ==3):
-        #             target_line = -200 * direction
-        #             self.switch_mode("turn2")
-        #             if(self.lidar180 < 0.45):
-        #                 num3 = 4
-        #                 self.switch_mode("gos2")
-        #         elif (num3 ==4 ):
-        #             self.switch_mode("stop")
-        #             stop_msg = Int64()
-        #             stop_msg.data = 0
-        #             self.stop_publisher.publish(stop_msg)
-        #             num3 =5
-
-        #         elif (num3 ==5):
-        #             time.sleep(5)
-
-        #             num3 = 6
-                
-        #         elif num3 ==6 and self.lidar0 <0.15:
-        #             target_line = -4
-        #             self.switch_mode("path")
-
-        #             if (self.lidar0 > 0.15):
-        #                 self.switch_mode("clear")
-        #                 num3 = 3
-
-        #         else :    
-        #             target_line = -4
-        #             self.switch_mode("path clear")
-
 
         # 雷達模式
         if (self.class_id == 5):
@@ -357,31 +304,20 @@ class Lane_detection(Node):
         # 啥都不是
         else:
             self.switch_mode("error")
-        if (target_line):
-            pub_msg=Int64()
-            pub_msg.data=-target_line
-            self.publisher_.publish(pub_msg)
 
-
+        self.moter_callback(target_line,1)
          # 輸出原圖&成果
+        img = self.draw_lane_lines(img, R_min_300, R_min_240, R_min_180, R_min_140,
+                          L_min_300, L_min_240, L_min_180, L_min_140)
         cv2.imshow("img", img)
-        cv2.imshow("mask_L", mask_G)
+        cv2.imshow("mask_R", mask_R)
         cv2.waitKey(1)
 
-        # return -target_line, img
 
 
 def main(args=None):
-    
-    
     rclpy.init(args=args)
-
     lane_detection = Lane_detection()
-
     rclpy.spin(lane_detection)
-
-    # Destroy the node explicitly
-    # (optional - otherwise it will be done automatically
-    # when the garbage collector destroys the node object)
     lane_detection.destroy_node()
     rclpy.shutdown()
